@@ -211,8 +211,8 @@ const Home: React.FC = () => {
                     }} 
                     paragraph
                   >
-                    Mix your perfect trading strategy like yoree. AI-powered insights, 
-                    real-time data, and academic research all in one delicious platform.
+                    Cook up your stock strategies in the crypto space. AI-powered insights, 
+                    real-time data and academic research all in one yummy platform.
                   </Typography>
                 </Box>
 

@@ -47,7 +47,7 @@ const Navbar: React.FC = () => {
     {
       path: '/dashboard',
       label: 'Dashboard',
-      icon: <RestaurantIcon sx={{ fontSize: 20 }} />,
+      icon: <DashboardIcon sx={{ fontSize: 20 }} />,
       badge: null
     },
     {
