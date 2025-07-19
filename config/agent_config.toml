@@ -1,0 +1,89 @@
+# YOREE Agent Configuration
+# Google Cloud AI Platform Integration
+
+[google_cloud]
+project_id = "sage-now-466417-n6"
+region = "europe-west1"
+api_key = ""  # Set your API key here or use environment variable
+gemma_url = "https://yoree-gemma-827561407333.europe-west1.run.app"
+
+[agents.strategy_generator]
+name = "YOREE Strategy Generator"
+description = "AI-powered trading strategy generation using Google Cloud AI"
+model_name = "text-bison"
+max_tokens = 1024
+temperature = 0.7
+enabled = true
+
+[agents.market_analyzer]
+name = "YOREE Market Analyzer"
+description = "Real-time market analysis and signal generation"
+model_name = "text-bison"
+analysis_interval = 300  # 5 minutes
+enabled = true
+
+[agents.risk_manager]
+name = "YOREE Risk Manager"
+description = "Automated risk assessment and management"
+risk_threshold = 0.8
+max_position_size = 0.1  # 10% of portfolio
+enabled = true
+
+[agents.portfolio_optimizer]
+name = "YOREE Portfolio Optimizer"
+description = "Dynamic portfolio optimization and rebalancing"
+rebalancing_threshold = 0.05  # 5% deviation
+optimization_interval = 3600  # 1 hour
+enabled = true
+
+[agents.sentiment_analyzer]
+name = "YOREE Sentiment Analyzer"
+description = "Market sentiment analysis using NLP"
+data_sources = ["twitter", "reddit", "news"]
+update_interval = 600  # 10 minutes
+enabled = true
+
+[agents.technical_analyzer]
+name = "YOREE Technical Analyzer"
+description = "Technical analysis and indicator calculation"
+indicators = ["RSI", "MACD", "Bollinger_Bands", "Moving_Averages"]
+timeframes = ["1m", "5m", "15m", "1h", "4h", "1d"]
+enabled = true
+
+[agent_manager]
+max_concurrent_agents = 10
+message_queue_size = 1000
+health_check_interval = 60  # 1 minute
+log_level = "info"
+
+[performance]
+backtest_enabled = true
+live_trading_enabled = false
+paper_trading_enabled = true
+max_strategies_per_user = 5
+
+[security]
+api_rate_limit = 100  # requests per minute
+max_request_size = "10MB"
+timeout_seconds = 30
+
+[monitoring]
+metrics_enabled = true
+alerting_enabled = true
+dashboard_url = "https://console.cloud.google.com/monitoring"
+
+[integrations]
+# External data sources
+coinbase_enabled = true
+binance_enabled = true
+coinmarketcap_enabled = true
+
+# AI/ML services
+google_ai_platform_enabled = true
+vertex_ai_enabled = true
+bigquery_enabled = true
+
+# Blockchain
+ethereum_enabled = true
+binance_smart_chain_enabled = true
+polygon_enabled = true 

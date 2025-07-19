@@ -19,7 +19,7 @@ import {
   LinearProgress
 } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
-import { Search, TrendingUp, Shield, Coins } from 'lucide-react';
+import { Search as SearchIcon, TrendingUp as TrendingUpIcon, Security as SecurityIcon, MonetizationOn as MonetizationOnIcon } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 
 interface CryptoTerm {
@@ -715,7 +715,7 @@ const CryptoGlossary: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Search size={20} />
+                      <SearchIcon sx={{ fontSize: 20 }} />
                     </InputAdornment>
                   ),
                 }}
@@ -764,7 +764,7 @@ const CryptoGlossary: React.FC = () => {
                           <Grid item xs={12} md={6}>
                             <Box sx={{ p: 3, bgcolor: 'primary.light', color: 'white', height: '100%' }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                <Coins size={24} style={{ marginRight: 8 }} />
+                                <MonetizationOnIcon sx={{ fontSize: 24, mr: 1 }} />
                                 <Typography variant="h6" fontWeight="bold">
                                   {term.crypto}
                                 </Typography>
@@ -798,7 +798,7 @@ const CryptoGlossary: React.FC = () => {
                           <Grid item xs={12} md={6}>
                             <Box sx={{ p: 3, bgcolor: 'secondary.light', color: 'white', height: '100%' }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                <TrendingUp size={24} style={{ marginRight: 8 }} />
+                                <TrendingUpIcon sx={{ fontSize: 24, mr: 1 }} />
                                 <Typography variant="h6" fontWeight="bold">
                                   {term.traditional}
                                 </Typography>
@@ -870,7 +870,7 @@ const CryptoGlossary: React.FC = () => {
                         <Grid item xs={12} md={6}>
                           <Box sx={{ p: 2, bgcolor: 'primary.light', borderRadius: 1, color: 'white' }}>
                             <Typography variant="h6" gutterBottom>
-                              <Coins size={20} style={{ marginRight: 8, verticalAlign: 'middle' }} />
+                              <MonetizationOnIcon sx={{ fontSize: 20, mr: 1, verticalAlign: 'middle' }} />
                               {term.crypto}
                             </Typography>
                             <Typography 
@@ -888,7 +888,7 @@ const CryptoGlossary: React.FC = () => {
                         <Grid item xs={12} md={6}>
                           <Box sx={{ p: 2, bgcolor: 'secondary.light', borderRadius: 1, color: 'white' }}>
                             <Typography variant="h6" gutterBottom>
-                              <TrendingUp size={20} style={{ marginRight: 8, verticalAlign: 'middle' }} />
+                              <TrendingUpIcon sx={{ fontSize: 20, mr: 1, verticalAlign: 'middle' }} />
                               {term.traditional}
                             </Typography>
                             <Typography 

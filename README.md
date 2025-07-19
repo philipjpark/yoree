@@ -9,6 +9,14 @@ YOREE is a comprehensive DeFi strategy platform that combines artificial intelli
 
 ## 🌟 Features
 
+### 🤖 AI Agents Powered by Google Cloud & Gemma 3-4B
+- **Strategy Generator Agent**: AI-powered trading strategy creation using Google's Gemma 3-4B model
+- **Market Analyzer Agent**: Real-time market analysis and signal generation with advanced NLP
+- **Risk Manager Agent**: Automated risk assessment and portfolio protection
+- **Portfolio Optimizer Agent**: Dynamic portfolio optimization and rebalancing
+- **Sentiment Analyzer Agent**: Market sentiment analysis using Gemma's language understanding
+- **Technical Analyzer Agent**: Advanced technical analysis and indicator calculation
+
 ### 🤖 AI-Powered Trading Strategies
 - **Strategy Builder**: Create custom trading strategies using AI-driven insights
 - **Strategy Marketplace**: Discover and deploy pre-built strategies from the community
@@ -43,6 +51,24 @@ YOREE is a comprehensive DeFi strategy platform that combines artificial intelli
 - npm or yarn
 - MetaMask or compatible Web3 wallet
 - Testnet tokens for gas fees
+- Google Cloud SDK (for AI agents)
+- Docker (for deployment)
+- Rust toolchain (for local development)
+
+### Google Cloud Setup (Required for AI Agents)
+```bash
+# 1. Install Google Cloud SDK (if not already installed)
+curl https://sdk.cloud.google.com | bash
+
+# 2. Authenticate and set project
+gcloud auth login
+export PROJECT_ID="sage-now-466417-n6"
+gcloud config set project $PROJECT_ID
+gcloud config set run/region europe-west1
+
+# 3. Enable required APIs
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com aiplatform.googleapis.com
+```
 
 ### Installation
 
@@ -72,7 +98,20 @@ cd yoree
    npx hardhat run scripts/deploy.js --network bscTestnet
    ```
 
-5. **Start the application**
+5. **Deploy AI Agents (Optional)**
+   ```bash
+   # Deploy agents to Google Cloud Run
+   chmod +x scripts/deploy-agents.sh
+   ./scripts/deploy-agents.sh
+   ```
+
+6. **Test Gemma Integration (Optional)**
+   ```bash
+   # Test the deployed Gemma model
+   node scripts/test-gemma.js
+   ```
+
+7. **Start the application**
    ```bash
    npm start
    ```
