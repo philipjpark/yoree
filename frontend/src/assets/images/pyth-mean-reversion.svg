@@ -1,0 +1,71 @@
+<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pythGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00D4AA;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#00B894;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00D4AA;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="meanGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00D4AA;stop-opacity:0.7" />
+      <stop offset="50%" style="stop-color:#00B894;stop-opacity:0.7" />
+      <stop offset="100%" style="stop-color:#00D4AA;stop-opacity:0.7" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="300" height="200" fill="url(#pythGradient)" opacity="0.1"/>
+  
+  <!-- Mean line -->
+  <line x1="50" y1="100" x2="250" y2="100" stroke="#00B894" stroke-width="2"/>
+  
+  <!-- Mean reversion oscillation -->
+  <path d="M50 100 Q75 80 100 100 T150 100 T200 100 T250 100" stroke="url(#meanGradient)" stroke-width="3" fill="none" opacity="0.8">
+    <animate attributeName="d" dur="4s" repeatCount="indefinite"
+      values="M50 100 Q75 80 100 100 T150 100 T200 100 T250 100;
+              M50 100 Q75 120 100 100 T150 100 T200 100 T250 100;
+              M50 100 Q75 80 100 100 T150 100 T200 100 T250 100"/>
+  </path>
+  
+  <!-- PYTH oracle representation -->
+  <g transform="translate(150, 60)">
+    <!-- Oracle tower -->
+    <rect x="-8" y="0" width="16" height="25" fill="url(#pythGradient)" opacity="0.9"/>
+    <!-- Data flow lines -->
+    <line x1="-12" y1="10" x2="-8" y2="10" stroke="#00D4AA" stroke-width="1" opacity="0.6">
+      <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
+    </line>
+    <line x1="8" y1="15" x2="12" y2="15" stroke="#00B894" stroke-width="1" opacity="0.6">
+      <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite" begin="1s"/>
+    </line>
+    <!-- Oracle indicator -->
+    <circle cx="0" cy="8" r="3" fill="#00D4AA" opacity="0.8">
+      <animate attributeName="r" values="3;4;3" dur="3s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  
+  <!-- Mean reversion arrows -->
+  <g transform="translate(150, 120)">
+    <!-- Down arrow (oversold) -->
+    <path d="M-20 0 L-20 10 L-25 10 L-15 20 L-5 10 L-10 10 L-10 0" stroke="#00D4AA" stroke-width="2" fill="none" opacity="0.7">
+      <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
+    </path>
+    <!-- Up arrow (overbought) -->
+    <path d="M10 20 L10 10 L15 10 L5 0 L-5 10 L0 10 L0 20" stroke="#00B894" stroke-width="2" fill="none" opacity="0.7">
+      <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite" begin="1s"/>
+    </path>
+  </g>
+  
+  <!-- Bollinger Bands representation -->
+  <path d="M50 90 Q75 85 100 90 T150 90 T200 90 T250 90" stroke="#00D4AA" stroke-width="1" fill="none" opacity="0.5" stroke-dasharray="3,3"/>
+  <path d="M50 110 Q75 115 100 110 T150 110 T200 110 T250 110" stroke="#00D4AA" stroke-width="1" fill="none" opacity="0.5" stroke-dasharray="3,3"/>
+  
+  <!-- Strategy name -->
+  <text x="150" y="180" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#333">
+    PYTH Mean Reversion
+  </text>
+  
+  <!-- Performance indicator -->
+  <circle cx="250" cy="30" r="8" fill="#00D4AA" opacity="0.8">
+    <animate attributeName="opacity" values="0.3;1;0.3" dur="3s" repeatCount="indefinite"/>
+  </circle>
+</svg> 

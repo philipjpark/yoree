@@ -1,0 +1,49 @@
+<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="solGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#9945FF;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#14F195;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#9945FF;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="momentumGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#14F195;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#9945FF;stop-opacity:0.8" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="300" height="200" fill="url(#solGradient)" opacity="0.1"/>
+  
+  <!-- Momentum waves -->
+  <path d="M0 150 Q50 120 100 150 T200 150 T300 150" stroke="url(#momentumGradient)" stroke-width="3" fill="none" opacity="0.7">
+    <animate attributeName="d" dur="3s" repeatCount="indefinite"
+      values="M0 150 Q50 120 100 150 T200 150 T300 150;
+              M0 150 Q50 180 100 150 T200 150 T300 150;
+              M0 150 Q50 120 100 150 T200 150 T300 150"/>
+  </path>
+  
+  <!-- SOL logo representation -->
+  <circle cx="150" cy="80" r="25" fill="url(#solGradient)" opacity="0.9">
+    <animate attributeName="r" values="25;30;25" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Momentum arrows -->
+  <g transform="translate(150, 80)">
+    <path d="M-15 -5 L5 0 L-15 5" stroke="#14F195" stroke-width="2" fill="none">
+      <animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" repeatCount="indefinite"/>
+    </path>
+    <path d="M-10 -8 L10 -8 L10 -12" stroke="#9945FF" stroke-width="2" fill="none">
+      <animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" repeatCount="indefinite" begin="0.5s"/>
+    </path>
+  </g>
+  
+  <!-- Strategy name -->
+  <text x="150" y="180" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#333">
+    SOL Momentum Master
+  </text>
+  
+  <!-- Performance indicator -->
+  <circle cx="250" cy="30" r="8" fill="#14F195" opacity="0.8">
+    <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
+  </circle>
+</svg> 
