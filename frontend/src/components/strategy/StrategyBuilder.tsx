@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import SOLStrategyBuilder from './SOLStrategyBuilder';
 import {
   Box,
   Container,
@@ -167,6 +168,7 @@ const StrategyBuilder: React.FC = () => {
   const [selectedProvenStrategy, setSelectedProvenStrategy] = useState<string>('');
   const [customModifications, setCustomModifications] = useState('');
   const [selectedToken, setSelectedToken] = useState<SolanaToken | null>(null);
+  const [useSOLAgents, setUseSOLAgents] = useState(false);
 
   const steps = [
     'Select Token',
@@ -520,6 +522,13 @@ Focus on practical, evidence-based recommendations that can be implemented right
   };
 
   const renderStepContent = (step: number) => {
+    // Check if we should show SOL agents
+    const shouldShowSOLAgents = selectedToken?.symbol === 'SOL' || parameters.coin === 'SOL';
+    
+    // If SOL is selected and we're on strategy generation step, show SOL agents
+    if (shouldShowSOLAgents && step === 8) {
+      return <SOLStrategyBuilder />;
+    }
     switch (step) {
       case 0:
         return (

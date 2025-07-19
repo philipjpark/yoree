@@ -212,7 +212,7 @@ const Home: React.FC = () => {
                     paragraph
                   >
                     Cook up your stock strategies in the crypto space. AI-powered insights, 
-                    real-time data and academic research all in one yummy platform.
+                    real-time data, and academic research all in one yummy platform.
                   </Typography>
                 </Box>
 
