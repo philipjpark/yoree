@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import SOLStrategyBuilder from './SOLStrategyBuilder';
 import solAgentService, { SOLStrategyRequest, SOLStrategyResponse } from '../../services/solAgentService';
+import Backtester from '../backtest/Backtester';
 import {
   Box,
   Container,
@@ -25,7 +26,7 @@ import {
   ToggleButton,
   LinearProgress
 } from '@mui/material';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { strategyApi, llmApi } from '../../services/api';
 import SentimentAnalysis from './SentimentAnalysis';
@@ -173,6 +174,7 @@ const StrategyBuilder: React.FC = () => {
   const [useSOLAgents, setUseSOLAgents] = useState(false);
   const [agentStrategy, setAgentStrategy] = useState<SOLStrategyResponse | null>(null);
   const [isGeneratingWithAgents, setIsGeneratingWithAgents] = useState(false);
+  const [showBacktester, setShowBacktester] = useState(false);
 
   const steps = [
     'Select Token',
@@ -1141,7 +1143,7 @@ Focus on practical, evidence-based recommendations that can be implemented right
                 </Button>
                 <Button
                   variant="outlined"
-                  onClick={() => navigate('/backtest')}
+                  onClick={() => setShowBacktester(true)}
                   disabled={!llmResponse}
                 >
                   Proceed to Backtest
@@ -1470,7 +1472,7 @@ Focus on practical, evidence-based recommendations that can be implemented right
                 <Button
                   variant="contained"
                   size="large"
-                  onClick={() => navigate('/backtest')}
+                  onClick={() => setShowBacktester(true)}
                   disabled={!llmResponse && !agentStrategy}
                   sx={{
                     background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
@@ -1716,6 +1718,36 @@ Focus on practical, evidence-based recommendations that can be implemented right
 
   return (
     <Container maxWidth="lg">
+      {/* Backtester Modal */}
+      <AnimatePresence>
+        {showBacktester && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 1000,
+              background: 'rgba(0, 0, 0, 0.8)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px'
+            }}
+          >
+            <Backtester
+              strategy={agentStrategy || { strategy: parameters }}
+              token={selectedToken?.symbol || parameters.coin}
+              onClose={() => setShowBacktester(false)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

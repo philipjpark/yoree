@@ -40,6 +40,7 @@ import solAgentService, {
   SOLMarketData, 
   AgentStatus 
 } from '../../services/solAgentService';
+import Backtester from '../backtest/Backtester';
 
 interface SOLStrategyBuilderProps {
   onStrategyGenerated?: (strategy: SOLStrategyResponse) => void;
@@ -67,6 +68,7 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
   // Results state
   const [strategy, setStrategy] = useState<SOLStrategyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showBacktester, setShowBacktester] = useState(false);
   const [liveMarketData, setLiveMarketData] = useState<SOLMarketData | null>(null);
 
   // Live market data updates
@@ -183,6 +185,36 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Backtester Modal */}
+      <AnimatePresence>
+        {showBacktester && strategy && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 1000,
+              background: 'rgba(0, 0, 0, 0.8)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px'
+            }}
+          >
+            <Backtester
+              strategy={strategy}
+              token="SOL"
+              onClose={() => setShowBacktester(false)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -559,12 +591,13 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
                       variant="contained"
                       color="inherit"
                       startIcon={<CheckCircle />}
+                      onClick={() => setShowBacktester(true)}
                       sx={{ 
                         background: 'rgba(255,255,255,0.2)',
                         '&:hover': { background: 'rgba(255,255,255,0.3)' }
                       }}
                     >
-                      Save Strategy
+                      📊 Proceed to Backtest
                     </Button>
                   </Box>
                 </CardContent>
