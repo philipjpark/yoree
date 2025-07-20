@@ -299,7 +299,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🧾 Additional Info
 
-🍚 [YOREE Slides.pdf]
+🍚 [YOREE Slides.pdf](./frontend/public/slides/YOREE%20Slides.pdf)
 
 🎥 [YOREE Demo Video]
 
