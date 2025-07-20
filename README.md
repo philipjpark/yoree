@@ -4,24 +4,23 @@
 
 YOREE is a comprehensive DeFi strategy platform that combines artificial intelligence with blockchain technology to provide users the power to: 
 1. Abstract the core components of building a trading strategy through dropdowns, tl:drs, and visuals 
-2. Access an easy UI that pipelines substrings that concatenate into a system prompt in an LLM that is preprocessed for trading crypto.
+2. Access an easy UI that pipelines substrings that concatenate into a system prompt and is fed into an agentic auditing framework that is preprocessed for trading crypto.
 3. Allows users to craft, personify, testnet, succeed, market, and then sell their strategies for capital and/or YOREE tokens.
 
 ## 🌟 Features
 
 ### 🤖 AI Agents Powered by Google Cloud & Gemma 3-4B
-- **Strategy Generator Agent**: AI-powered trading strategy creation using Google's Gemma 3-4B model
-- **Market Analyzer Agent**: Real-time market analysis and signal generation with advanced NLP
-- **Risk Manager Agent**: Automated risk assessment and portfolio protection
-- **Portfolio Optimizer Agent**: Dynamic portfolio optimization and rebalancing
-- **Sentiment Analyzer Agent**: Market sentiment analysis using Gemma's language understanding
-- **Technical Analyzer Agent**: Advanced technical analysis and indicator calculation
+- **Market Analyzer Agent**: Fetches real-time market data from CoinGecko API for live price, volume, and market cap information
+- **Technical Analyzer Agent**: Analyzes technical indicators (RSI, MACD, moving averages, support/resistance levels) and market patterns
+- **Risk Manager Agent**: Calculates token-specific risk factors, position sizing, and risk management based on volatility and market conditions
+- **Strategy Generator Agent**: Uses Google's Gemma 3-4B model to create comprehensive trading strategies with entry, target, and stop-loss prices
 
 ### 🤖 AI-Powered Trading Strategies
 - **Strategy Builder**: Create custom trading strategies using AI-driven insights
 - **Strategy Marketplace**: Discover and deploy pre-built strategies from the community
 - **Backtesting Engine**: Test strategies against historical data before deployment
-- **Real-time Analytics**: Monitor strategy performance with live metrics
+- **Live Analytics**: Monitor strategy performance with live metrics
+- **Real-time Agent Status**: Visual indicators showing AI agent progress and status
 - **Strategy Personification**: Give your strategies unique personalities and visual identities
 
 ### 💰 Stablecoin Integration (coming soon)
@@ -54,6 +53,7 @@ YOREE is a comprehensive DeFi strategy platform that combines artificial intelli
 - Google Cloud SDK (for AI agents)
 - Docker (for deployment)
 - Rust toolchain (for local development)
+- Testnet SOL for gas fees
 
 ### Google Cloud Setup (Required for AI Agents)
 ```bash
@@ -68,6 +68,22 @@ gcloud config set run/region europe-west1
 
 # 3. Enable required APIs
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com aiplatform.googleapis.com
+
+# 4. Deploy Gemma 3-4B model
+gcloud run deploy yoree-gemma \
+  --image us-docker.pkg.dev/cloudrun/container/gemma/gemma3-4b \
+  --concurrency 4 \
+  --cpu 8 \
+  --gpu 1 \
+  --gpu-type nvidia-l4 \
+  --max-instances 1 \
+  --memory 32Gi \
+  --allow-unauthenticated \
+  --no-cpu-throttling \
+  --timeout=600 \
+  --region europe-west1 \
+  --no-gpu-zonal-redundancy \
+  --labels dev-tutorial=hackathon-nyc-cloud-run-gpu-25
 ```
 
 ### Installation
@@ -75,7 +91,7 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com aiplatform.g
 1. **Clone the repository**
    ```bash
    git clone https://github.com/philipjpark/yoree.git
-cd yoree
+   cd yoree
    ```
 
 2. **Install dependencies**
@@ -85,34 +101,15 @@ cd yoree
    npm install
    ```
 
-3. **Set up environment variables**
+3. **Test AI Agent Integration**
    ```bash
-   # Copy the example environment file
-   cp .env.example .env
-   # Edit .env with your configuration
+   # Test the complete agent system
+   node scripts/test-sol-agents.js
    ```
 
-4. **Deploy smart contracts**
+4. **Start the application**
    ```bash
-   npx hardhat compile
-   npx hardhat run scripts/deploy.js --network bscTestnet
-   ```
-
-5. **Deploy AI Agents (Optional)**
-   ```bash
-   # Deploy agents to Google Cloud Run
-   chmod +x scripts/deploy-agents.sh
-   ./scripts/deploy-agents.sh
-   ```
-
-6. **Test Gemma Integration (Optional)**
-   ```bash
-   # Test the deployed Gemma model
-   node scripts/test-gemma.js
-   ```
-
-7. **Start the application**
-   ```bash
+   cd frontend
    npm start
    ```
 
@@ -123,12 +120,18 @@ cd yoree
 - **MockStablecoin**: Testnet stablecoin implementation for development
 - **VaultManager**: Secure asset storage and management
 
+### AI Agent System
+- **Market Analyzer**: CoinGecko API integration for live market data
+- **Technical Analyzer**: Technical indicator calculation and pattern recognition
+- **Risk Manager**: Volatility-based risk assessment and position sizing
+- **Strategy Generator**: Gemma 3-4B integration for AI-powered strategy creation
+
 ### Frontend (React + TypeScript)
-- **Modern UI**: Professional and responsive user interface with Material-UI
-- **Real-time Updates**: Live balance and transaction monitoring
-- **Wallet Integration**: Seamless connection with multiple wallet providers
-- **Strategy Builder**: Visual interface for creating and managing trading strategies
-- **Portfolio Dashboard**: Comprehensive overview of holdings and performance
+- **Modern UI**: Professional interface with Material-UI components
+- **Strategy Builder**: Visual interface for creating AI-powered trading strategies
+- **Agent Dashboard**: Real-time monitoring of AI agent status and progress
+- **Live Market Data**: Real-time price feeds and market information
+- **Wallet Integration**: Wallet connection and management
 
 ### Backend (Rust)
 - **High Performance**: Rust backend for optimal performance and security
@@ -137,12 +140,19 @@ cd yoree
 - **Database Management**: PostgreSQL for data persistence (coming soon)
 - **REST API**: Comprehensive API endpoints for frontend integration
 
-### AI Components
-- **Strategy Generation**: AI-powered trading strategy creation
-- **Market Analysis**: Real-time market sentiment and trend analysis
-- **Risk Assessment**: Automated risk evaluation for strategies
-- **Performance Optimization**: Machine learning for strategy improvement
-- **LLM Integration**: Advanced language model processing for strategy optimization
+### Smart Contracts (Solana)
+- **StrategyManager**: Core contract for strategy creation and management
+- **VaultManager**: Secure asset storage and management
+- **Performance Tracking**: Strategy performance monitoring and analytics
+
+### Key Technologies
+- **React**: Frontend framework with TypeScript
+- **Material-UI**: Component library for beautiful UI
+- **Google Cloud Run**: AI model deployment and hosting
+- **Gemma 3-4B**: Google's advanced language model for strategy generation
+- **CoinGecko API**: Real-time cryptocurrency market data
+- **Solana**: High-performance blockchain for DeFi applications
+- **Axios**: HTTP client for API communication
 
 ## 📱 User Interface
 
@@ -179,12 +189,15 @@ cd yoree
 ### Project Structure
 ```
 yoree/
-├── contracts/          # Smart contracts
-├── frontend/          # React frontend
-├── backend/           # Rust backend
-├── scripts/           # Deployment and utility scripts
-├── docs/              # Documentation
-└── tests/             # Test files
+├── frontend/                    # React frontend
+│   ├── src/
+│   │   ├── components/         # React components
+│   │   │   └── strategy/       # Strategy builder components
+│   │   ├── services/           # API services
+│   │   └── pages/              # Application pages
+├── contracts/                  # Smart contracts
+├── scripts/                    # Deployment and utility scripts
+└── docs/                       # Documentation
 ```
 
 ### Key Technologies
@@ -200,8 +213,8 @@ yoree/
 
 ### Available Scripts
 ```bash
-# Start the application
-npm start
+# Test the complete agent system
+node scripts/test-sol-agents.js
 
 # Deploy contracts
 npm run deploy
