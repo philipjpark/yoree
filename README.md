@@ -301,5 +301,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 🍚 [YOREE Slides.pdf](./frontend/public/slides/Yoree%20Slides.pdf)
 
-🎥 [YOREE Demo Video]
+🎥 [YOREE Demo Video](https://youtu.be/iaypenjVwiQ)
 
