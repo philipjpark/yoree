@@ -312,7 +312,7 @@ cargo test
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-**YOREE** - Where atock traders can start cooking some crypto. 🥄
+**YOREE - An AI-Powered DeFi Strategy Platform where stock traders can start cooking crypto.** 🥄
 
 ## 🧾 Additional Info
 
