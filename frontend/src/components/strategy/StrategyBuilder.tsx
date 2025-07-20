@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import SOLStrategyBuilder from './SOLStrategyBuilder';
+import solAgentService, { SOLStrategyRequest, SOLStrategyResponse } from '../../services/solAgentService';
 import {
   Box,
   Container,
@@ -21,7 +22,8 @@ import {
   Alert,
   Chip,
   ToggleButtonGroup,
-  ToggleButton
+  ToggleButton,
+  LinearProgress
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -169,6 +171,8 @@ const StrategyBuilder: React.FC = () => {
   const [customModifications, setCustomModifications] = useState('');
   const [selectedToken, setSelectedToken] = useState<SolanaToken | null>(null);
   const [useSOLAgents, setUseSOLAgents] = useState(false);
+  const [agentStrategy, setAgentStrategy] = useState<SOLStrategyResponse | null>(null);
+  const [isGeneratingWithAgents, setIsGeneratingWithAgents] = useState(false);
 
   const steps = [
     'Select Token',
@@ -501,23 +505,49 @@ Focus on practical, evidence-based recommendations that can be implemented right
   const handleGenerateStrategy = async () => {
     setLoading(true);
     setError('');
+    setIsGeneratingWithAgents(true);
 
     try {
-      const strategyString = generateStrategyString();
-      console.log('🚀 Generating strategy with Gemini service...');
-      console.log('Strategy input:', strategyString);
+      // Check if we should use AI agents (for SOL or any token)
+      const shouldUseAgents = selectedToken?.symbol === 'SOL' || parameters.coin === 'SOL';
       
-      // Use Gemini service directly instead of llmApi
-      const response = await geminiService.generateStrategy(strategyString);
-      console.log('✅ Strategy generated successfully:', response);
+      if (shouldUseAgents) {
+        console.log('🤖 Starting AI Agent Strategy Generation...');
+        
+        // Create agent request with all form data
+        const agentRequest: SOLStrategyRequest = {
+          asset: selectedToken?.symbol || parameters.coin,
+          timeframe: parameters.timeframe,
+          riskLevel: parameters.riskManagement.positionSize <= 1 ? 'low' : 
+                    parameters.riskManagement.positionSize <= 3 ? 'moderate' : 'high',
+          investmentAmount: parameters.riskManagement.positionSize * 1000, // Convert to dollar amount
+          walletBalance: 10000, // Default wallet balance
+        };
+        
+        // Generate strategy with all 4 agents
+        const agentResult = await solAgentService.generateSOLStrategy(agentRequest);
+        setAgentStrategy(agentResult);
+        
+        console.log('✅ AI Agent Strategy Generated Successfully!');
+      } else {
+        // Fallback to original Gemini method
+        const strategyString = generateStrategyString();
+        console.log('🚀 Generating strategy with Gemini service...');
+        console.log('Strategy input:', strategyString);
+        
+        const response = await geminiService.generateStrategy(strategyString);
+        console.log('✅ Strategy generated successfully:', response);
+        
+        setLlmResponse({ message: response });
+      }
       
-      setLlmResponse({ message: response });
       handleNext();
     } catch (err: any) {
       console.error('❌ Strategy generation failed:', err);
       setError(err.message || 'Failed to generate strategy');
     } finally {
       setLoading(false);
+      setIsGeneratingWithAgents(false);
     }
   };
 
@@ -525,9 +555,9 @@ Focus on practical, evidence-based recommendations that can be implemented right
     // Check if we should show SOL agents
     const shouldShowSOLAgents = selectedToken?.symbol === 'SOL' || parameters.coin === 'SOL';
     
-    // If SOL is selected and we're on strategy generation step, show SOL agents
-    if (shouldShowSOLAgents && step === 8) {
-      return <SOLStrategyBuilder />;
+    // If SOL is selected and we're on strategy generation step, show agent results
+    if (shouldShowSOLAgents && step === 8 && agentStrategy) {
+      return <SOLStrategyBuilder onStrategyGenerated={() => {}} />;
     }
     switch (step) {
       case 0:
@@ -1161,10 +1191,13 @@ Focus on practical, evidence-based recommendations that can be implemented right
                     textShadow: '0 2px 4px rgba(0,0,0,0.3)'
                   }}
                 >
-                  🎉 Strategy Generated Successfully!
+                  {agentStrategy ? '🤖 AI Agent Strategy Generated!' : '🎉 Strategy Generated Successfully!'}
                 </Typography>
                 <Typography variant="h6" sx={{ opacity: 0.9 }}>
-                  Your AI-powered {parameters.coin} trading strategy is ready
+                  {agentStrategy 
+                    ? `Your AI-powered ${parameters.coin} strategy with live market data is ready`
+                    : `Your AI-powered ${parameters.coin} trading strategy is ready`
+                  }
                 </Typography>
               </Box>
             </motion.div>
@@ -1224,27 +1257,150 @@ Focus on practical, evidence-based recommendations that can be implemented right
 
                 {/* Strategy Content */}
                 <Box sx={{ p: 4 }}>
-                  <Box
-                    sx={{
-                      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-                      borderRadius: 3,
-                      p: 3,
-                      border: '2px solid #e3e8f0',
-                      '& pre': {
-                        margin: 0,
-                        padding: 0,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                        fontFamily: '"SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace',
-                        fontSize: '0.95rem',
-                        lineHeight: 1.6,
-                        color: '#2d3748',
-                        background: 'transparent'
-                      }
-                    }}
-                  >
-                    <pre>{llmResponse?.message}</pre>
-                  </Box>
+                  {agentStrategy ? (
+                    // Show AI Agent Results
+                    <Grid container spacing={3}>
+                      {/* Strategy Parameters */}
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#667eea' }}>
+                          📊 Strategy Parameters
+                        </Typography>
+                        <Box sx={{ display: 'grid', gap: 2, mb: 3 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography>Entry Price:</Typography>
+                            <Typography fontWeight="bold">${agentStrategy.strategy.entry.toFixed(2)}</Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography>Target Price:</Typography>
+                            <Typography fontWeight="bold" color="success.main">
+                              ${agentStrategy.strategy.target.toFixed(2)}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography>Stop Loss:</Typography>
+                            <Typography fontWeight="bold" color="error.main">
+                              ${agentStrategy.strategy.stopLoss.toFixed(2)}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography>Position Size:</Typography>
+                            <Typography fontWeight="bold">${agentStrategy.strategy.positionSize.toFixed(2)}</Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography>Confidence:</Typography>
+                            <Typography fontWeight="bold">{agentStrategy.strategy.confidence}%</Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+
+                      {/* Market Analysis */}
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#667eea' }}>
+                          📈 Market Analysis
+                        </Typography>
+                        <Box sx={{ mb: 2 }}>
+                          <Chip 
+                            label={agentStrategy.analysis.marketTrend} 
+                            color={agentStrategy.analysis.marketTrend === 'Bullish' ? 'success' : 'error'}
+                            sx={{ mb: 1 }}
+                          />
+                        </Box>
+                        <Typography variant="body2" gutterBottom>
+                          <strong>Technical Signals:</strong>
+                        </Typography>
+                        <Box sx={{ mb: 2 }}>
+                          {agentStrategy.analysis.technicalSignals.map((signal, index) => (
+                            <Chip 
+                              key={index} 
+                              label={signal} 
+                              size="small" 
+                              variant="outlined" 
+                              sx={{ mr: 1, mb: 1 }}
+                            />
+                          ))}
+                        </Box>
+                        <Typography variant="body2" gutterBottom>
+                          <strong>Recommendations:</strong>
+                        </Typography>
+                        <Box>
+                          {agentStrategy.analysis.recommendations.map((rec, index) => (
+                            <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
+                              • {rec}
+                            </Typography>
+                          ))}
+                        </Box>
+                      </Grid>
+
+                      {/* Live Market Data */}
+                      <Grid item xs={12}>
+                        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#667eea' }}>
+                          📊 Live Market Data
+                        </Typography>
+                        <Box sx={{ 
+                          background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+                          borderRadius: 2,
+                          p: 2,
+                          display: 'flex',
+                          justifyContent: 'space-around',
+                          flexWrap: 'wrap',
+                          gap: 2
+                        }}>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="h6" fontWeight="bold">
+                              ${agentStrategy.marketData.price.toFixed(2)}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">Current Price</Typography>
+                          </Box>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Typography 
+                              variant="h6" 
+                              fontWeight="bold"
+                              color={agentStrategy.marketData.price_change_percentage_24h >= 0 ? 'success.main' : 'error.main'}
+                            >
+                              {agentStrategy.marketData.price_change_percentage_24h >= 0 ? '+' : ''}
+                              {agentStrategy.marketData.price_change_percentage_24h.toFixed(2)}%
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">24h Change</Typography>
+                          </Box>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="h6" fontWeight="bold">
+                              ${(agentStrategy.marketData.volume_24h / 1000000).toFixed(1)}M
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">24h Volume</Typography>
+                          </Box>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="h6" fontWeight="bold">
+                              ${(agentStrategy.marketData.market_cap / 1000000000).toFixed(1)}B
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">Market Cap</Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  ) : (
+                    // Show Original LLM Results
+                    <Box
+                      sx={{
+                        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+                        borderRadius: 3,
+                        p: 3,
+                        border: '2px solid #e3e8f0',
+                        '& pre': {
+                          margin: 0,
+                          padding: 0,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          fontFamily: '"SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace',
+                          fontSize: '0.95rem',
+                          lineHeight: 1.6,
+                          color: '#2d3748',
+                          background: 'transparent'
+                        }
+                      }}
+                    >
+                      <pre>{llmResponse?.message}</pre>
+                    </Box>
+                  )}
                 </Box>
               </Paper>
             </motion.div>
@@ -1588,6 +1744,34 @@ Focus on practical, evidence-based recommendations that can be implemented right
             </Box>
 
             {renderStepContent(activeStep)}
+
+            {/* Agent Loading Indicator */}
+            {isGeneratingWithAgents && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <Box sx={{ mt: 3, textAlign: 'center' }}>
+                  <Typography variant="h6" gutterBottom sx={{ color: '#667eea', fontWeight: 'bold' }}>
+                    🤖 AI Agents Working...
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Market Analyzer • Technical Analyzer • Risk Manager • Strategy Generator
+                  </Typography>
+                  <LinearProgress 
+                    sx={{ 
+                      height: 8, 
+                      borderRadius: 4,
+                      background: 'rgba(102, 126, 234, 0.2)',
+                      '& .MuiLinearProgress-bar': {
+                        background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)'
+                      }
+                    }} 
+                  />
+                </Box>
+              </motion.div>
+            )}
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
               <Button
