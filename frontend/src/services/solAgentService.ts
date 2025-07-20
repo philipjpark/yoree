@@ -48,6 +48,7 @@ export interface SOLStrategyResponse {
     riskPercentage: number;
     confidence: number;
   };
+  writtenStrategy: string; // The actual written strategy text from Gemma
   analysis: {
     marketTrend: string;
     technicalSignals: string[];
@@ -171,13 +172,14 @@ class SOLAgentService {
       
       // Step 4: Strategy Generator Agent (using Gemma)
       console.log('🧠 Strategy Generator Agent: Creating SOL strategy with Gemma...');
-      const strategy = await this.generateStrategyWithGemma(request, marketData, technicalData, riskAnalysis);
+      const { strategy, writtenStrategy } = await this.generateStrategyWithGemma(request, marketData, technicalData, riskAnalysis);
       
       // Step 5: Compile final response
       const analysis = this.compileAnalysis(marketData, technicalData, riskAnalysis);
       
       return {
         strategy,
+        writtenStrategy,
         analysis,
         marketData,
         technicalData,
@@ -236,14 +238,14 @@ class SOLAgentService {
     technicalData: SOLTechnicalData, 
     riskAnalysis: any
   ) {
+    // Use local proxy to avoid CORS issues
+    const endpoint = 'http://localhost:3001/api/gemma';
+    
     try {
       console.log('🧠 Attempting to use Gemma for strategy generation...');
       
       // Create prompt for Gemma
       const prompt = this.createSOLStrategyPrompt(request, marketData, technicalData, riskAnalysis);
-      
-      // Correct Gemma API endpoint and payload format
-      const endpoint = 'https://yoree-gemma-827561407333.europe-west1.run.app/v1beta/models/gemma3:4b:generateContent';
       
       const payload = {
         contents: [
@@ -258,6 +260,9 @@ class SOLAgentService {
       };
       
       // Call Gemma API with correct format
+      console.log('🌐 Making request to Gemma API...');
+      console.log('📝 Request payload:', JSON.stringify(payload, null, 2));
+      
       const response = await axios.post(endpoint, payload, {
         timeout: 30000, // 30 second timeout for model inference
         headers: {
@@ -265,6 +270,8 @@ class SOLAgentService {
           'User-Agent': 'yoree-sol-agent/1.0'
         }
       });
+      
+      console.log('✅ Gemma API response received:', response.status);
       
       // Parse Gemma response using correct structure
       const responseData = response.data;
@@ -284,12 +291,25 @@ class SOLAgentService {
       console.log('✅ Gemma strategy generated successfully');
       
       // Extract strategy parameters from text
-      return this.parseStrategyFromText(strategyText, marketData, technicalData, riskAnalysis);
+      const strategy = this.parseStrategyFromText(strategyText, marketData, technicalData, riskAnalysis);
+      
+      return {
+        strategy,
+        writtenStrategy: strategyText
+      };
       
     } catch (error: any) {
       console.error('⚠️ Gemma API error, using fallback strategy generation:', error?.message || 'Unknown error');
+      console.error('🔍 Full error details:', error);
+      
       // Fallback to rule-based strategy
-      return this.generateFallbackStrategy(marketData, technicalData, riskAnalysis);
+      const strategy = this.generateFallbackStrategy(marketData, technicalData, riskAnalysis);
+      const writtenStrategy = this.createFallbackWrittenStrategy(strategy, marketData, technicalData, riskAnalysis);
+      
+      return {
+        strategy,
+        writtenStrategy
+      };
     }
   }
 
@@ -312,8 +332,8 @@ Current SOL Market Data:
 Technical Analysis:
 - RSI: ${technicalData.rsi.toFixed(2)}
 - MACD: ${technicalData.macd.macd.toFixed(4)}
-- Support Levels: $${technicalData.support_levels.map(s => s.toFixed(2)).join(', ')}
-- Resistance Levels: $${technicalData.resistance_levels.map(r => r.toFixed(2)).join(', ')}
+- Support Levels: $${technicalData.support_levels.map((s: number) => s.toFixed(2)).join(', ')}
+- Resistance Levels: $${technicalData.resistance_levels.map((r: number) => r.toFixed(2)).join(', ')}
 - Volatility: ${(technicalData.volatility * 100).toFixed(2)}%
 
 Risk Profile:
@@ -322,7 +342,9 @@ Risk Profile:
 - Wallet Balance: $${request.walletBalance}
 - Risk Factors: ${riskAnalysis.riskFactors.join(', ')}
 
-Generate a SOL trading strategy with specific entry, target, and stop-loss prices. Consider SOL's high volatility and provide conservative risk management.
+Generate a comprehensive SOL trading strategy with specific entry, target, and stop-loss prices. Consider SOL's high volatility and provide conservative risk management.
+
+IMPORTANT: If the user has requested a specific language or style (like Vietnamese, Spanish, etc.), respond in that language. Otherwise, respond in English.
 
 Format your response as:
 Entry: $X.XX
@@ -332,7 +354,7 @@ Position Size: $X.XX
 Risk Percentage: X%
 Confidence: X%
 
-Strategy:`;
+Strategy: [Provide a detailed written strategy explanation in the requested language/style]`;
   }
 
   // Parse strategy from Gemma response
@@ -353,6 +375,35 @@ Strategy:`;
       riskPercentage: riskPercentageMatch ? parseFloat(riskPercentageMatch[1]) : riskAnalysis.maxRiskPercentage,
       confidence: confidenceMatch ? parseFloat(confidenceMatch[1]) : 75
     };
+  }
+
+  // Create fallback written strategy
+  private createFallbackWrittenStrategy(strategy: any, marketData: SOLMarketData, technicalData: SOLTechnicalData, riskAnalysis: any): string {
+    return `
+SOL Trading Strategy (Fallback Generation)
+
+Based on current market conditions and technical analysis, here's your SOL trading strategy:
+
+Entry: $${strategy.entry.toFixed(2)}
+Target: $${strategy.target.toFixed(2)}
+Stop-loss: $${strategy.stopLoss.toFixed(2)}
+Position Size: $${strategy.positionSize.toFixed(2)}
+Risk Percentage: ${strategy.riskPercentage}%
+Confidence: ${strategy.confidence}%
+
+Strategy Analysis:
+- Current SOL price: $${marketData.price.toFixed(2)}
+- 24h change: ${marketData.price_change_percentage_24h.toFixed(2)}%
+- RSI: ${technicalData.rsi.toFixed(2)} (${technicalData.rsi < 30 ? 'Oversold' : technicalData.rsi > 70 ? 'Overbought' : 'Neutral'})
+- Volatility: ${(technicalData.volatility * 100).toFixed(2)}%
+
+Risk Management:
+- Risk level: ${riskAnalysis.riskLevel}
+- Position size limited to ${riskAnalysis.maxRiskPercentage}% of portfolio
+- Stop loss set to protect capital
+
+This strategy is based on technical indicators and market momentum analysis. The AI agents have analyzed current market conditions and generated this conservative approach for SOL trading.
+    `.trim();
   }
 
   // Fallback strategy generation

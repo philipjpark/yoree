@@ -499,7 +499,7 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
                         <strong>Technical Signals:</strong>
                       </Typography>
                       <Box sx={{ mb: 2 }}>
-                        {strategy.analysis.technicalSignals.map((signal, index) => (
+                        {strategy.analysis.technicalSignals.map((signal: string, index: number) => (
                           <Chip 
                             key={index} 
                             label={signal} 
@@ -514,7 +514,7 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
                         <strong>Recommendations:</strong>
                       </Typography>
                       <Box>
-                        {strategy.analysis.recommendations.map((rec, index) => (
+                        {strategy.analysis.recommendations.map((rec: string, index: number) => (
                           <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
                             • {rec}
                           </Typography>
@@ -522,6 +522,26 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
                       </Box>
                     </Grid>
                   </Grid>
+                  
+                  {/* Written Strategy */}
+                  <Box sx={{ mt: 4 }}>
+                    <Typography variant="h6" gutterBottom>
+                      📝 Generated Strategy
+                    </Typography>
+                    <Box sx={{ 
+                      background: 'rgba(255,255,255,0.1)',
+                      borderRadius: 2,
+                      p: 3,
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      fontFamily: 'monospace',
+                      whiteSpace: 'pre-wrap',
+                      fontSize: '14px',
+                      lineHeight: 1.6,
+                      color: 'white'
+                    }}>
+                      {strategy.writtenStrategy}
+                    </Box>
+                  </Box>
                   
                   <Divider sx={{ my: 3, borderColor: 'rgba(255,255,255,0.2)' }} />
                   

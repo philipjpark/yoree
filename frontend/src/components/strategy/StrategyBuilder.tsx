@@ -1193,12 +1193,12 @@ Focus on practical, evidence-based recommendations that can be implemented right
                 >
                   {agentStrategy ? '🤖 AI Agent Strategy Generated!' : '🎉 Strategy Generated Successfully!'}
                 </Typography>
-                <Typography variant="h6" sx={{ opacity: 0.9 }}>
-                  {agentStrategy 
-                    ? `Your AI-powered ${parameters.coin} strategy with live market data is ready`
-                    : `Your AI-powered ${parameters.coin} trading strategy is ready`
-                  }
-                </Typography>
+                                  <Typography variant="h6" sx={{ opacity: 0.9 }}>
+                    {agentStrategy 
+                      ? `Your AI-powered ${selectedToken?.symbol || parameters.coin} strategy with live market data is ready`
+                      : `Your AI-powered ${selectedToken?.symbol || parameters.coin} trading strategy is ready`
+                    }
+                  </Typography>
               </Box>
             </motion.div>
 
@@ -1309,7 +1309,7 @@ Focus on practical, evidence-based recommendations that can be implemented right
                           <strong>Technical Signals:</strong>
                         </Typography>
                         <Box sx={{ mb: 2 }}>
-                          {agentStrategy.analysis.technicalSignals.map((signal, index) => (
+                          {agentStrategy.analysis.technicalSignals.map((signal: string, index: number) => (
                             <Chip 
                               key={index} 
                               label={signal} 
@@ -1323,7 +1323,7 @@ Focus on practical, evidence-based recommendations that can be implemented right
                           <strong>Recommendations:</strong>
                         </Typography>
                         <Box>
-                          {agentStrategy.analysis.recommendations.map((rec, index) => (
+                          {agentStrategy.analysis.recommendations.map((rec: string, index: number) => (
                             <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
                               • {rec}
                             </Typography>
@@ -1376,6 +1376,54 @@ Focus on practical, evidence-based recommendations that can be implemented right
                           </Box>
                         </Box>
                       </Grid>
+
+                      {/* Written Strategy */}
+                      <Grid item xs={12}>
+                        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#667eea' }}>
+                          📝 Generated Strategy
+                        </Typography>
+                        <Box sx={{ 
+                          background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+                          borderRadius: 2,
+                          p: 3,
+                          border: '1px solid #dee2e6',
+                          fontFamily: 'monospace',
+                          whiteSpace: 'pre-wrap',
+                          fontSize: '14px',
+                          lineHeight: 1.6
+                        }}>
+                          {agentStrategy.writtenStrategy}
+                        </Box>
+                      </Grid>
+
+                      {/* TradingView Style Chart */}
+                      <Grid item xs={12}>
+                        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#667eea' }}>
+                          📈 Performance Chart
+                        </Typography>
+                        <Box sx={{ 
+                          background: '#1e222d',
+                          borderRadius: 2,
+                          p: 2,
+                          height: 300,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: '1px solid #2a2e39'
+                        }}>
+                          <Box sx={{ textAlign: 'center', color: '#ffffff' }}>
+                            <Typography variant="h5" sx={{ mb: 2, color: '#667eea' }}>
+                              📊 TradingView Chart
+                            </Typography>
+                            <Typography variant="body1" sx={{ mb: 2, opacity: 0.8 }}>
+                              Interactive chart showing {selectedToken?.symbol || parameters.coin} performance
+                            </Typography>
+                            <Typography variant="body2" sx={{ opacity: 0.6 }}>
+                              Entry: ${agentStrategy.strategy.entry.toFixed(2)} | Target: ${agentStrategy.strategy.target.toFixed(2)} | Stop: ${agentStrategy.strategy.stopLoss.toFixed(2)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
                     </Grid>
                   ) : (
                     // Show Original LLM Results
@@ -1423,7 +1471,7 @@ Focus on practical, evidence-based recommendations that can be implemented right
                   variant="contained"
                   size="large"
                   onClick={() => navigate('/backtest')}
-                  disabled={!llmResponse}
+                  disabled={!llmResponse && !agentStrategy}
                   sx={{
                     background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
                     px: 4,
@@ -1439,14 +1487,17 @@ Focus on practical, evidence-based recommendations that can be implemented right
                     }
                   }}
                 >
-                  🚀 Start Backtesting
+                  📊 Proceed to Backtest
                 </Button>
 
                 <Button
                   variant="outlined"
                   size="large"
                   onClick={() => {
-                    navigator.clipboard.writeText(llmResponse?.message || '');
+                    const strategyText = agentStrategy 
+                      ? `Strategy for ${selectedToken?.symbol || parameters.coin}:\nEntry: $${agentStrategy.strategy.entry.toFixed(2)}\nTarget: $${agentStrategy.strategy.target.toFixed(2)}\nStop Loss: $${agentStrategy.strategy.stopLoss.toFixed(2)}\nPosition Size: $${agentStrategy.strategy.positionSize.toFixed(2)}\nConfidence: ${agentStrategy.strategy.confidence}%\n\nMarket Analysis:\n${agentStrategy.analysis.recommendations.join('\n')}`
+                      : llmResponse?.message || '';
+                    navigator.clipboard.writeText(strategyText);
                     // You could add a toast notification here
                   }}
                   sx={{

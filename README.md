@@ -69,23 +69,6 @@ gcloud config set run/region europe-west1
 # 3. Enable required APIs
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com aiplatform.googleapis.com
 
-# 4. Deploy Gemma 3-4B model
-gcloud run deploy yoree-gemma \
-  --image us-docker.pkg.dev/cloudrun/container/gemma/gemma3-4b \
-  --concurrency 4 \
-  --cpu 8 \
-  --gpu 1 \
-  --gpu-type nvidia-l4 \
-  --max-instances 1 \
-  --memory 32Gi \
-  --allow-unauthenticated \
-  --no-cpu-throttling \
-  --timeout=600 \
-  --region europe-west1 \
-  --no-gpu-zonal-redundancy \
-  --labels dev-tutorial=hackathon-nyc-cloud-run-gpu-25
-```
-
 ### Installation
 
 1. **Clone the repository**
