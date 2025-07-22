@@ -1,13 +1,13 @@
 # 🍚 YOREE - AI-Powered DeFi Strategy Platform
 
-
+## 🏆 Featured Finalist in the NYC Agentic AI App Hackathon with Google Cloud Run GPUs
 
 Yoree is a comprehensive DeFi strategy platform that combines artificial intelligence with blockchain technology to provide users the power to: 
 1. Abstract the core components of building a trading strategy through dropdowns, tl:drs, and visuals. 
 2. Access an easy UI that pipelines substrings that concatenate into a system prompt and is fed into an agentic auditing framework that is preprocessed for trading crypto.
 3. Allows users to craft, personify, testnet, succeed, market, and then sell their strategies for capital and/or YOREE tokens.
 
-## 🌟 Features
+## 🌟 Components
 
 ### 🤖 AI Agents Powered by Google Cloud & Gemma 3-4B
 - **Market Analyzer Agent**: Fetches real-time market data from CoinGecko API for live price, volume, and market cap information
