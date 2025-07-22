@@ -8,7 +8,7 @@ Yoree is a comprehensive DeFi strategy platform that combines artificial intelli
 2. Access an easy UI that pipelines substrings that concatenate into a system prompt and is fed into an agentic auditing framework that is preprocessed for trading crypto.
 3. Allows users to craft, personify, testnet, succeed, market, and then sell their strategies for capital and/or YOREE tokens.
 
-> <span style="color:gray;">Originally built as <b>Bibim</b> – now evolved into <b>Yoree</b> with major updates.</span>
+> <span style="color:gray;"><i>Originally built as <b>Bibim</b> – now evolved into <b>Yoree</b> with major updates.</i></span>
 
 ## 🌟 Components
 
