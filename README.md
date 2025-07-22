@@ -1,6 +1,6 @@
 # 🍚 YOREE - AI-Powered DeFi Strategy Platform
 
-## 🏆 Featured Finalist in the NYC Agentic AI App Hackathon with Google Cloud Run GPUs
+## 🏆 Featured Finalist in the NYC AI Tinkerers Agentic AI App Hackathon with Google Cloud Run GPUs
 ## 🥈 2025 Permissionless IV Hackathon – 2nd Place Winner
 
 Yoree is a comprehensive DeFi strategy platform that combines artificial intelligence with blockchain technology to provide users the power to: 
