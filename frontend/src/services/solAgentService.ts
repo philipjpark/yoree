@@ -77,11 +77,14 @@ class SOLAgentService {
   }
 
   // Get live SOL market data from CoinGecko
-  async getSOLMarketData(): Promise<SOLMarketData> {
+  async getSOLMarketData(asset: string = 'SOL'): Promise<SOLMarketData> {
     try {
+      // Get the token ID from the asset parameter
+      const tokenId = this.getTokenId(asset);
+      
       const response = await axios.get(`${this.coingeckoAPI}/simple/price`, {
         params: {
-          ids: 'solana',
+          ids: tokenId,
           vs_currencies: 'usd',
           include_24hr_vol: true,
           include_24hr_change: true,
@@ -92,31 +95,59 @@ class SOLAgentService {
         }
       });
 
-      const solData = response.data.solana;
+      const tokenData = response.data[tokenId];
       
       return {
-        symbol: 'SOL',
-        price: solData.usd,
-        volume_24h: solData.usd_24h_vol,
-        market_cap: solData.usd_market_cap,
-        price_change_24h: solData.usd_24h_change,
-        price_change_percentage_24h: solData.usd_24h_change,
-        high_24h: solData.usd_24h_high,
-        low_24h: solData.usd_24h_low,
-        last_updated: new Date(solData.last_updated_at * 1000).toISOString()
+        symbol: asset,
+        price: tokenData.usd,
+        volume_24h: tokenData.usd_24h_vol,
+        market_cap: tokenData.usd_market_cap,
+        price_change_24h: tokenData.usd_24h_change,
+        price_change_percentage_24h: tokenData.usd_24h_change,
+        high_24h: tokenData.usd_24h_high,
+        low_24h: tokenData.usd_24h_low,
+        last_updated: new Date(tokenData.last_updated_at * 1000).toISOString()
       };
     } catch (error) {
-      console.error('Error fetching SOL market data:', error);
-      throw new Error('Failed to fetch SOL market data');
+      console.error('Error fetching market data:', error);
+      throw new Error('Failed to fetch market data');
     }
   }
 
-  // Get SOL technical analysis data
-  async getSOLTechnicalData(): Promise<SOLTechnicalData> {
+  // Helper method to convert token symbols to CoinGecko IDs
+  private getTokenId(symbol: string): string {
+    const tokenMap: { [key: string]: string } = {
+      'SOL': 'solana',
+      'BTC': 'bitcoin',
+      'ETH': 'ethereum',
+      'BNB': 'binancecoin',
+      'ADA': 'cardano',
+      'DOT': 'polkadot',
+      'LINK': 'chainlink',
+      'LTC': 'litecoin',
+      'BCH': 'bitcoin-cash',
+      'XRP': 'ripple',
+      'DOGE': 'dogecoin',
+      'MATIC': 'matic-network',
+      'AVAX': 'avalanche-2',
+      'UNI': 'uniswap',
+      'ATOM': 'cosmos',
+      'FTM': 'fantom',
+      'NEAR': 'near',
+      'ALGO': 'algorand',
+      'VET': 'vechain',
+      'ICP': 'internet-computer'
+    };
+    
+    return tokenMap[symbol.toUpperCase()] || 'solana'; // Default to SOL if not found
+  }
+
+  // Get technical analysis data for any token
+  async getSOLTechnicalData(asset: string = 'SOL'): Promise<SOLTechnicalData> {
     try {
       // For now, we'll simulate technical data
       // In production, this would come from TradingView API or similar
-      const marketData = await this.getSOLMarketData();
+      const marketData = await this.getSOLMarketData(asset);
       
       // Simulate technical indicators based on price data
       const volatility = Math.abs(marketData.price_change_percentage_24h) / 100;
@@ -148,30 +179,30 @@ class SOLAgentService {
         volatility: volatility
       };
     } catch (error) {
-      console.error('Error fetching SOL technical data:', error);
-      throw new Error('Failed to fetch SOL technical data');
+      console.error('Error fetching technical data:', error);
+      throw new Error('Failed to fetch technical data');
     }
   }
 
   // Generate SOL strategy using AI agents
   async generateSOLStrategy(request: SOLStrategyRequest): Promise<SOLStrategyResponse> {
     try {
-      console.log('🤖 Starting SOL strategy generation with agents...');
+      console.log(`🤖 Starting ${request.asset} strategy generation with agents...`);
       
       // Step 1: Market Analyzer Agent
-      console.log('📊 Market Analyzer Agent: Fetching live SOL data...');
-      const marketData = await this.getSOLMarketData();
+      console.log(`📊 Market Analyzer Agent: Fetching live ${request.asset} data...`);
+      const marketData = await this.getSOLMarketData(request.asset);
       
       // Step 2: Technical Analyzer Agent
-      console.log('📈 Technical Analyzer Agent: Analyzing SOL patterns...');
-      const technicalData = await this.getSOLTechnicalData();
+      console.log(`📈 Technical Analyzer Agent: Analyzing ${request.asset} patterns...`);
+      const technicalData = await this.getSOLTechnicalData(request.asset);
       
       // Step 3: Risk Manager Agent
-      console.log('🛡️ Risk Manager Agent: Calculating SOL-specific risk...');
+      console.log(`🛡️ Risk Manager Agent: Calculating ${request.asset}-specific risk...`);
       const riskAnalysis = this.analyzeSOLRisk(request, marketData, technicalData);
       
       // Step 4: Strategy Generator Agent (using Gemma)
-      console.log('🧠 Strategy Generator Agent: Creating SOL strategy with Gemma...');
+      console.log(`🧠 Strategy Generator Agent: Creating ${request.asset} strategy with Gemma...`);
       const { strategy, writtenStrategy } = await this.generateStrategyWithGemma(request, marketData, technicalData, riskAnalysis);
       
       // Step 5: Compile final response

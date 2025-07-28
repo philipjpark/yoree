@@ -4,7 +4,7 @@
 [google_cloud]
 project_id = "sage-now-466417-n6"
 region = "europe-west1"
-api_key = ""  # Set your API key here or use environment variable
+api_key = "AIzaSyBEg3L2ibz5qSaJ_NAXbmVOwyRYTQIBYdY"  # Google Cloud API key
 gemma_url = "https://yoree-gemma-827561407333.europe-west1.run.app"
 
 [agents.strategy_generator]

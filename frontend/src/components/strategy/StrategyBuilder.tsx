@@ -147,7 +147,7 @@ const StrategyBuilder: React.FC = () => {
   // Add traditional strategy state
   const [selectedTraditionalStrategy, setSelectedTraditionalStrategy] = useState<TraditionalStrategy | null>(null);
   const [sentimentAnalysis, setSentimentAnalysis] = useState<any>(null);
-  const [modelType, setModelType] = useState<'gemini' | 'gpt' | 'claude'>('gemini');
+  const [modelType, setModelType] = useState<'gemma' | 'agentcore'>('gemma');
 
   const [parameters, setParameters] = useState<StrategyParameters>({
     coin: 'tBNB',
@@ -285,29 +285,21 @@ const StrategyBuilder: React.FC = () => {
     // Build concatenated strategy string based on model type
     let strategyString = '';
 
-    // Header based on model type
+    // Header based on agent type
     switch (modelType) {
-      case 'gemini':
-        strategyString += `[CRYPTO TRADING STRATEGY GENERATION]
+      case 'gemma':
+        strategyString += `[CRYPTO TRADING STRATEGY GENERATION - GOOGLE GEMMA]
 
 You are an expert crypto trading strategist with deep knowledge of traditional finance, technical analysis, and Solana ecosystem dynamics. Generate a comprehensive, actionable trading strategy based on the following inputs:
 
 `;
         break;
-      case 'gpt':
-        strategyString += `[CRYPTO TRADING STRATEGY GENERATION]
+      case 'agentcore':
+        strategyString += `[CRYPTO TRADING STRATEGY GENERATION - AWS AGENTCORE]
 
-You are a professional crypto trading advisor. Create a detailed trading strategy based on the provided information.
+You are a professional crypto trading advisor powered by AWS AgentCore. Create a detailed trading strategy based on the provided information.
 
 ## Strategy Context
-`;
-        break;
-      case 'claude':
-        strategyString += `[CRYPTO TRADING STRATEGY GENERATION]
-
-As an expert crypto trading strategist, I need you to analyze the following inputs and generate a comprehensive trading strategy.
-
-## Input Analysis
 `;
         break;
     }
@@ -451,9 +443,9 @@ ${customModifications}
 `;
     }
 
-    // Model-specific instructions
+    // Agent-specific instructions
     switch (modelType) {
-      case 'gemini':
+      case 'gemma':
         strategyString += `
 ## STRATEGY GENERATION INSTRUCTIONS
 Based on the above comprehensive inputs, generate a CONCISE, ACTIONABLE crypto trading strategy that is easy to implement immediately.
@@ -471,7 +463,7 @@ Example format:
 
 Keep it simple, direct, and implementable. Focus on the most important actionable insight from all the data provided.`;
         break;
-      case 'gpt':
+      case 'agentcore':
         strategyString += `
 ## STRATEGY GENERATION INSTRUCTIONS
 Please analyze the provided information and create a CONCISE, ACTIONABLE trading strategy.
@@ -485,20 +477,6 @@ Your response should be:
 
 Focus on the most important actionable insight and keep it simple.`;
         break;
-      case 'claude':
-        strategyString += `
-## STRATEGY GENERATION INSTRUCTIONS
-Based on the comprehensive analysis above, provide a CONCISE, ACTIONABLE trading strategy.
-
-Your response should be:
-- Concise and to the point
-- Actionable and specific
-- Easy to implement immediately
-- Based on all the inputs provided
-- No markdown formatting or bullet points
-
-Focus on practical, evidence-based recommendations that can be implemented right away.`;
-        break;
     }
 
     return strategyString;
@@ -510,38 +488,24 @@ Focus on practical, evidence-based recommendations that can be implemented right
     setIsGeneratingWithAgents(true);
 
     try {
-      // Check if we should use AI agents (for SOL or any token)
-      const shouldUseAgents = selectedToken?.symbol === 'SOL' || parameters.coin === 'SOL';
+      // Use AI agents for all tokens now
+      console.log('🤖 Starting AI Agent Strategy Generation...');
       
-      if (shouldUseAgents) {
-        console.log('🤖 Starting AI Agent Strategy Generation...');
-        
-        // Create agent request with all form data
-        const agentRequest: SOLStrategyRequest = {
-          asset: selectedToken?.symbol || parameters.coin,
-          timeframe: parameters.timeframe,
-          riskLevel: parameters.riskManagement.positionSize <= 1 ? 'low' : 
-                    parameters.riskManagement.positionSize <= 3 ? 'moderate' : 'high',
-          investmentAmount: parameters.riskManagement.positionSize * 1000, // Convert to dollar amount
-          walletBalance: 10000, // Default wallet balance
-        };
-        
-        // Generate strategy with all 4 agents
-        const agentResult = await solAgentService.generateSOLStrategy(agentRequest);
-        setAgentStrategy(agentResult);
-        
-        console.log('✅ AI Agent Strategy Generated Successfully!');
-      } else {
-        // Fallback to original Gemini method
-        const strategyString = generateStrategyString();
-        console.log('🚀 Generating strategy with Gemini service...');
-        console.log('Strategy input:', strategyString);
-        
-        const response = await geminiService.generateStrategy(strategyString);
-        console.log('✅ Strategy generated successfully:', response);
-        
-        setLlmResponse({ message: response });
-      }
+      // Create agent request with all form data
+      const agentRequest: SOLStrategyRequest = {
+        asset: selectedToken?.symbol || parameters.coin,
+        timeframe: parameters.timeframe,
+        riskLevel: parameters.riskManagement.positionSize <= 1 ? 'low' : 
+                  parameters.riskManagement.positionSize <= 3 ? 'moderate' : 'high',
+        investmentAmount: parameters.riskManagement.positionSize * 1000, // Convert to dollar amount
+        walletBalance: 10000, // Default wallet balance
+      };
+      
+      // Generate strategy with all 4 agents for any token
+      const agentResult = await solAgentService.generateSOLStrategy(agentRequest);
+      setAgentStrategy(agentResult);
+      
+      console.log('✅ AI Agent Strategy Generated Successfully!');
       
       handleNext();
     } catch (err: any) {
@@ -554,11 +518,8 @@ Focus on practical, evidence-based recommendations that can be implemented right
   };
 
   const renderStepContent = (step: number) => {
-    // Check if we should show SOL agents
-    const shouldShowSOLAgents = selectedToken?.symbol === 'SOL' || parameters.coin === 'SOL';
-    
-    // If SOL is selected and we're on strategy generation step, show agent results
-    if (shouldShowSOLAgents && step === 8 && agentStrategy) {
+    // Show agent results for all tokens on strategy generation step
+    if (step === 8 && agentStrategy) {
       return <SOLStrategyBuilder onStrategyGenerated={() => {}} />;
     }
     switch (step) {
@@ -1054,22 +1015,21 @@ Focus on practical, evidence-based recommendations that can be implemented right
               Review the concatenated strategy string and generate your comprehensive trading strategy.
             </Typography>
             
-            {/* Model Selection */}
+            {/* Agent Selection */}
             <Card sx={{ mb: 3 }}>
               <CardContent>
                 <Typography variant="subtitle1" gutterBottom>
-                  Select LLM Model
+                  Select Agent Service
                 </Typography>
                 <FormControl fullWidth>
-                  <InputLabel>Model Type</InputLabel>
+                  <InputLabel>Agent Type</InputLabel>
                   <Select
                     value={modelType}
-                    onChange={(e) => setModelType(e.target.value as 'gemini' | 'gpt' | 'claude')}
-                    label="Model Type"
+                    onChange={(e) => setModelType(e.target.value as 'gemma' | 'agentcore')}
+                    label="Agent Type"
                   >
-                    <MenuItem value="gemini">Gemini (Recommended)</MenuItem>
-                    <MenuItem value="gpt">GPT-4</MenuItem>
-                    <MenuItem value="claude">Claude</MenuItem>
+                    <MenuItem value="gemma">Google Gemma (Recommended)</MenuItem>
+                    <MenuItem value="agentcore">AWS AgentCore</MenuItem>
                   </Select>
                 </FormControl>
               </CardContent>
@@ -1117,7 +1077,7 @@ Focus on practical, evidence-based recommendations that can be implemented right
                   Generate Strategy
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Click the button below to generate your comprehensive trading strategy using the selected LLM model.
+                  Click the button below to generate your comprehensive trading strategy using the selected agent.
                 </Typography>
                 
                 {pdfSummary && (
@@ -1864,7 +1824,7 @@ Focus on practical, evidence-based recommendations that can be implemented right
               >
                 Back
               </Button>
-              {activeStep < steps.length - 1 && (
+              {activeStep < steps.length - 1 && activeStep !== 7 && (
                 <Button
                   variant="contained"
                   onClick={handleNext}
