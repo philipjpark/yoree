@@ -42,14 +42,15 @@ import solAgentService, {
 } from '../../services/solAgentService';
 import Backtester from '../backtest/Backtester';
 
-interface SOLStrategyBuilderProps {
+interface StrategyBuilderProps {
   onStrategyGenerated?: (strategy: SOLStrategyResponse) => void;
+  selectedToken?: { symbol: string; name: string; description: string };
 }
 
-const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGenerated }) => {
+const StrategyBuilder: React.FC<StrategyBuilderProps> = ({ onStrategyGenerated, selectedToken }) => {
   // Form state
   const [formData, setFormData] = useState({
-    asset: 'SOL',
+    asset: selectedToken?.symbol || 'SOL',
     timeframe: '1h',
     riskLevel: 'moderate' as 'low' | 'moderate' | 'high',
     investmentAmount: 1000,
@@ -75,7 +76,7 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
   useEffect(() => {
     const fetchLiveData = async () => {
       try {
-        const data = await solAgentService.getSOLMarketData();
+        const data = await solAgentService.getSOLMarketData(formData.asset);
         setLiveMarketData(data);
       } catch (error) {
         console.error('Error fetching live market data:', error);
@@ -88,7 +89,7 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
     // Update every 30 seconds
     const interval = setInterval(fetchLiveData, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [formData.asset]);
 
   const handleFormChange = (field: string, value: any) => {
     setFormData(prev => ({
@@ -208,7 +209,7 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
           >
             <Backtester
               strategy={strategy}
-              token="SOL"
+              token={selectedToken?.symbol || 'SOL'}
               onClose={() => setShowBacktester(false)}
             />
           </motion.div>
@@ -234,11 +235,11 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
             WebkitTextFillColor: 'transparent',
           }}
         >
-          🤖 SOL Strategy Builder
+          🤖 {selectedToken?.symbol || 'SOL'} Strategy Builder
         </Typography>
 
         <Typography variant="h6" color="text.secondary" sx={{ textAlign: 'center', mb: 4 }}>
-          AI-powered strategy generation for Solana using live market data
+          AI-powered strategy generation for {selectedToken?.name || 'Solana'} using live market data
         </Typography>
 
         {/* Live Market Data */}
@@ -257,9 +258,9 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
                         <TrendingUp />
                       </Avatar>
                       <Box>
-                        <Typography variant="h6">SOL</Typography>
+                        <Typography variant="h6">{selectedToken?.symbol || 'SOL'}</Typography>
                         <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                          Solana
+                          {selectedToken?.name || 'Solana'}
                         </Typography>
                       </Box>
                     </Box>
@@ -294,7 +295,7 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
                   </Grid>
                   <Grid item xs={6} md={3}>
                     <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                      Last updated: {new Date(liveMarketData.last_updated).toLocaleTimeString()}
+                      Last updated: {new Date().toLocaleTimeString()}
                     </Typography>
                   </Grid>
                 </Grid>
@@ -325,7 +326,7 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
                         label="Asset"
                         onChange={(e) => handleFormChange('asset', e.target.value)}
                       >
-                        <MenuItem value="SOL">SOL - Solana</MenuItem>
+                        <MenuItem value={selectedToken?.symbol || 'SOL'}>{selectedToken?.symbol || 'SOL'} - {selectedToken?.name || 'Solana'}</MenuItem>
                       </Select>
                     </FormControl>
 
@@ -400,7 +401,7 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
                       }
                     }}
                   >
-                    {isGenerating ? 'Generating Strategy...' : 'Generate SOL Strategy'}
+                    {isGenerating ? 'Generating Strategy...' : 'Generate Strategy'}
                   </Button>
                 </CardContent>
               </Card>
@@ -444,7 +445,7 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
 
                   {isGenerating && (
                     <Alert severity="info" sx={{ mb: 2 }}>
-                      AI agents are analyzing live SOL market data and generating your strategy...
+                      AI agents are analyzing live {selectedToken?.symbol || 'SOL'} market data and generating your strategy...
                     </Alert>
                   )}
 
@@ -471,7 +472,7 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
               <Card sx={{ mt: 4, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
                 <CardContent>
                   <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', textAlign: 'center' }}>
-                    🎯 Generated SOL Strategy
+                    🎯 Generated {selectedToken?.symbol || 'SOL'} Strategy
                   </Typography>
                   
                   <Grid container spacing={4}>
@@ -558,7 +559,7 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
                   {/* Written Strategy */}
                   <Box sx={{ mt: 4 }}>
                     <Typography variant="h6" gutterBottom>
-                      📝 Generated Strategy
+                      📝 Strategy Builder
                     </Typography>
                     <Box sx={{ 
                       background: 'rgba(255,255,255,0.1)',
@@ -610,4 +611,4 @@ const SOLStrategyBuilder: React.FC<SOLStrategyBuilderProps> = ({ onStrategyGener
   );
 };
 
-export default SOLStrategyBuilder; 
+export default StrategyBuilder; 

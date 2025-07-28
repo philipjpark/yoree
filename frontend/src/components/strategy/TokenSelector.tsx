@@ -166,7 +166,7 @@ const TokenSelector: React.FC<TokenSelectorProps> = ({ onTokenSelect, selectedTo
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
           <TrendingUpIcon color="primary" />
           <Typography variant="h6">
-            Select a Solana Token
+            Choose Wisely
           </Typography>
         </Box>
 

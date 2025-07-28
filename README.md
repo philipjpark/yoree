@@ -87,13 +87,22 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com aiplatform.g
    npm install
    ```
 
-3. **Test AI Agent Integration**
+3. **Set up environment variables**
+   ```bash
+   # Create .env file in the root directory
+   echo "GOOGLE_CLOUD_API_KEY=your_google_cloud_api_key_here" > .env
+   
+   # Replace 'your_google_cloud_api_key_here' with your actual Google Cloud API key
+   # The .env file is already in .gitignore to keep your API key secure
+   ```
+
+4. **Test AI Agent Integration**
    ```bash
    # Test the complete agent system
    node scripts/test-sol-agents.js
    ```
 
-4. **Start the application**
+5. **Start the application**
    ```bash
    cd frontend
    npm start
