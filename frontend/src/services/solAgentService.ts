@@ -118,6 +118,7 @@ class SOLAgentService {
   private getTokenId(symbol: string): string {
     const tokenMap: { [key: string]: string } = {
       'SOL': 'solana',
+      'TBNB': 'binancecoin', // Use BNB data for tBNB
       'BTC': 'bitcoin',
       'ETH': 'ethereum',
       'BNB': 'binancecoin',
@@ -344,7 +345,7 @@ class SOLAgentService {
     }
   }
 
-  // Create SOL-specific prompt for Gemma
+  // Create dynamic prompt for any token
   private createSOLStrategyPrompt(
     request: SOLStrategyRequest, 
     marketData: SOLMarketData, 
@@ -352,9 +353,9 @@ class SOLAgentService {
     riskAnalysis: any
   ): string {
     return `
-You are an expert quantitative trader specializing in Solana (SOL) trading strategies.
+You are an expert quantitative trader specializing in ${marketData.symbol} trading strategies.
 
-Current SOL Market Data:
+Current ${marketData.symbol} Market Data:
 - Price: $${marketData.price}
 - 24h Change: ${marketData.price_change_percentage_24h}%
 - Volume: $${marketData.volume_24h.toLocaleString()}
@@ -373,7 +374,7 @@ Risk Profile:
 - Wallet Balance: $${request.walletBalance}
 - Risk Factors: ${riskAnalysis.riskFactors.join(', ')}
 
-Generate a comprehensive SOL trading strategy with specific entry, target, and stop-loss prices. Consider SOL's high volatility and provide conservative risk management.
+Generate a comprehensive ${marketData.symbol} trading strategy with specific entry, target, and stop-loss prices. Consider ${marketData.symbol}'s volatility characteristics and provide appropriate risk management.
 
 IMPORTANT: If the user has requested a specific language or style (like Vietnamese, Spanish, etc.), respond in that language. Otherwise, respond in English.
 
@@ -411,9 +412,9 @@ Strategy: [Provide a detailed written strategy explanation in the requested lang
   // Create fallback written strategy
   private createFallbackWrittenStrategy(strategy: any, marketData: SOLMarketData, technicalData: SOLTechnicalData, riskAnalysis: any): string {
     return `
-SOL Trading Strategy (Fallback Generation)
+${marketData.symbol} Trading Strategy (Fallback Generation)
 
-Based on current market conditions and technical analysis, here's your SOL trading strategy:
+Based on current market conditions and technical analysis, here's your ${marketData.symbol} trading strategy:
 
 Entry: $${strategy.entry.toFixed(2)}
 Target: $${strategy.target.toFixed(2)}
@@ -423,7 +424,7 @@ Risk Percentage: ${strategy.riskPercentage}%
 Confidence: ${strategy.confidence}%
 
 Strategy Analysis:
-- Current SOL price: $${marketData.price.toFixed(2)}
+- Current ${marketData.symbol} price: $${marketData.price.toFixed(2)}
 - 24h change: ${marketData.price_change_percentage_24h.toFixed(2)}%
 - RSI: ${technicalData.rsi.toFixed(2)} (${technicalData.rsi < 30 ? 'Oversold' : technicalData.rsi > 70 ? 'Overbought' : 'Neutral'})
 - Volatility: ${(technicalData.volatility * 100).toFixed(2)}%
@@ -433,7 +434,7 @@ Risk Management:
 - Position size limited to ${riskAnalysis.maxRiskPercentage}% of portfolio
 - Stop loss set to protect capital
 
-This strategy is based on technical indicators and market momentum analysis. The AI agents have analyzed current market conditions and generated this conservative approach for SOL trading.
+This strategy is based on technical indicators and market momentum analysis. The AI agents have analyzed current market conditions and generated this conservative approach for ${marketData.symbol} trading.
     `.trim();
   }
 
@@ -474,7 +475,7 @@ This strategy is based on technical indicators and market momentum analysis. The
       confidence = 70;
     }
     
-    // Adjust for SOL volatility
+    // Adjust for token volatility
     if (volatility > 0.15) {
       // High volatility - more conservative
       target = entry + (target - entry) * 0.8;
@@ -505,10 +506,10 @@ This strategy is based on technical indicators and market momentum analysis. The
     if (technicalData.macd.macd < technicalData.macd.signal) technicalSignals.push('MACD bearish crossover');
     
     const recommendations = [
-      `SOL showing ${marketTrend.toLowerCase()} momentum`,
-      `Volatility: ${(technicalData.volatility * 100).toFixed(1)}% - ${technicalData.volatility > 0.15 ? 'High' : 'Normal'} for SOL`,
+      `${marketData.symbol} showing ${marketTrend.toLowerCase()} momentum`,
+      `Volatility: ${(technicalData.volatility * 100).toFixed(1)}% - ${technicalData.volatility > 0.15 ? 'High' : 'Normal'} for ${marketData.symbol}`,
       `Position size: ${riskAnalysis.maxRiskPercentage}% of portfolio recommended`,
-      'Monitor SOL ecosystem news for additional signals'
+      `Monitor ${marketData.symbol} ecosystem news for additional signals`
     ];
     
     return {

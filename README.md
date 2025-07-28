@@ -87,13 +87,18 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com aiplatform.g
    npm install
    ```
 
-3. **Set up environment variables**
+3. **Set up environment variables and configuration**
    ```bash
    # Create .env file in the root directory
    echo "GOOGLE_CLOUD_API_KEY=your_google_cloud_api_key_here" > .env
    
-   # Replace 'your_google_cloud_api_key_here' with your actual Google Cloud API key
-   # The .env file is already in .gitignore to keep your API key secure
+   # Copy and configure the agent configuration
+   cp config/agent_config.example.toml config/agent_config.toml
+   # Edit config/agent_config.toml and replace:
+   # - "your-project-id-here" with your actual Google Cloud project ID
+   # - "your-google-cloud-api-key-here" with your actual Google Cloud API key
+   
+   # Both .env and config/agent_config.toml are in .gitignore to keep your keys secure
    ```
 
 4. **Test AI Agent Integration**
