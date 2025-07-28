@@ -184,7 +184,7 @@ class SOLAgentService {
     }
   }
 
-  // Generate SOL strategy using AI agents
+  // Generate strategy using AI agents
   async generateSOLStrategy(request: SOLStrategyRequest): Promise<SOLStrategyResponse> {
     try {
       console.log(`🤖 Starting ${request.asset} strategy generation with agents...`);
@@ -219,7 +219,7 @@ class SOLAgentService {
       
     } catch (error) {
       console.error('Error generating SOL strategy:', error);
-      throw new Error('Failed to generate SOL strategy');
+      throw new Error('Failed to generate strategy');
     }
   }
 

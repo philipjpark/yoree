@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import SOLStrategyBuilder from './SOLStrategyBuilder';
 import solAgentService, { SOLStrategyRequest, SOLStrategyResponse } from '../../services/solAgentService';
 import Backtester from '../backtest/Backtester';
+import StrategyBuilderComponent from './SOLStrategyBuilder';
 import {
   Box,
   Container,
@@ -185,7 +185,7 @@ const StrategyBuilder: React.FC = () => {
     'Risk Management',
     'Swap for Profit',
     'Strategy String',
-    'Generated Strategy'
+    'Strategy Builder'
   ];
 
   const handleNext = () => {
@@ -520,17 +520,17 @@ Focus on the most important actionable insight and keep it simple.`;
   const renderStepContent = (step: number) => {
     // Show agent results for all tokens on strategy generation step
     if (step === 8 && agentStrategy) {
-      return <SOLStrategyBuilder onStrategyGenerated={() => {}} />;
+      return <StrategyBuilderComponent onStrategyGenerated={() => {}} selectedToken={selectedToken || undefined} />;
     }
     switch (step) {
       case 0:
         return (
           <Box>
             <Typography variant="h6" gutterBottom>
-              Select a Solana Token
+              Select a Token
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Choose a token from the Solana ecosystem to build your trading strategy around.
+              Choose a token to build your trading strategy around.
             </Typography>
             
             <TokenSelector onTokenSelect={handleTokenSelect} selectedToken={selectedToken} />

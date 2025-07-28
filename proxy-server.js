@@ -47,5 +47,5 @@ app.get('/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 YOREE Proxy Server running on http://localhost:${PORT}`);
   console.log(`📡 Proxying requests to Gemma API`);
-  console.log(`🔑 Using API key: ${process.env.GOOGLE_CLOUD_API_KEY ? 'Set' : 'Not set'}`);
+  console.log(`🔑 API key: ${process.env.GOOGLE_CLOUD_API_KEY ? '✓ Loaded' : '✗ Missing'}`);
 }); 
