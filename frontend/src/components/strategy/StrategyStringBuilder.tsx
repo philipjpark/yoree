@@ -35,7 +35,7 @@ interface StrategyStringBuilderProps {
   riskManagement: any;
   instantSwap: any;
   customModifications: string;
-  modelType: 'gemini' | 'gpt' | 'claude';
+  modelType: 'gemma' | 'agentcore';
   skippedSteps: Set<number>;
 }
 
@@ -56,29 +56,21 @@ const StrategyStringBuilder: React.FC<StrategyStringBuilderProps> = ({
   const buildStrategyString = () => {
     let strategyString = '';
 
-    // Header based on model type
+    // Header based on agent type
     switch (modelType) {
-      case 'gemini':
-        strategyString += `[CRYPTO TRADING STRATEGY GENERATION - GEMINI OPTIMIZED]
+      case 'gemma':
+        strategyString += `[CRYPTO TRADING STRATEGY GENERATION - GOOGLE GEMMA]
 
 You are an expert crypto trading strategist with deep knowledge of traditional finance, technical analysis, and Solana ecosystem dynamics. Generate a comprehensive, actionable trading strategy based on the following inputs:
 
 `;
         break;
-      case 'gpt':
-        strategyString += `# Crypto Trading Strategy Generation
+      case 'agentcore':
+        strategyString += `# Crypto Trading Strategy Generation - AWS AgentCore
 
-You are a professional crypto trading advisor. Create a detailed trading strategy based on the provided information.
+You are a professional crypto trading advisor powered by AWS AgentCore. Create a detailed trading strategy based on the provided information.
 
 ## Strategy Context
-`;
-        break;
-      case 'claude':
-        strategyString += `# Crypto Trading Strategy Analysis
-
-As an expert crypto trading strategist, I need you to analyze the following inputs and generate a comprehensive trading strategy.
-
-## Input Analysis
 `;
         break;
     }
@@ -222,11 +214,11 @@ ${customModifications}
 `;
     }
 
-    // Model-specific instructions
+    // Agent-specific instructions
     switch (modelType) {
-      case 'gemini':
+      case 'gemma':
         strategyString += `
-## INSTRUCTION FOR GEMINI
+## INSTRUCTION FOR GOOGLE GEMMA
 Based on the above comprehensive inputs, generate a detailed crypto trading strategy that:
 
 1. **Strategy Overview**: Provide a clear, concise explanation of the recommended approach
@@ -242,9 +234,9 @@ Format your response in a conversational but professional tone, as if you're a h
 
 Keep the response engaging, practical, and educational.`;
         break;
-      case 'gpt':
+      case 'agentcore':
         strategyString += `
-## Instructions for GPT
+## Instructions for AWS AgentCore
 Please analyze the provided information and create a comprehensive trading strategy that includes:
 
 1. Strategy overview and rationale
@@ -255,19 +247,6 @@ Please analyze the provided information and create a comprehensive trading strat
 6. Performance monitoring
 
 Provide actionable, specific recommendations based on the data provided.`;
-        break;
-      case 'claude':
-        strategyString += `
-## Instructions for Claude
-Based on the comprehensive analysis above, please provide:
-
-1. A detailed strategy breakdown
-2. Risk assessment and mitigation
-3. Implementation guidelines
-4. Performance monitoring framework
-5. Adaptation recommendations
-
-Focus on practical, evidence-based recommendations that leverage both traditional finance principles and crypto-specific dynamics.`;
         break;
     }
 
@@ -280,18 +259,16 @@ Focus on practical, evidence-based recommendations that leverage both traditiona
 
   const getModelColor = () => {
     switch (modelType) {
-      case 'gemini': return '#4285f4';
-      case 'gpt': return '#10a37f';
-      case 'claude': return '#d97706';
+      case 'gemma': return '#4285f4';
+      case 'agentcore': return '#ff9900';
       default: return '#666';
     }
   };
 
   const getModelIcon = () => {
     switch (modelType) {
-      case 'gemini': return '🤖';
-      case 'gpt': return '🧠';
-      case 'claude': return '🎯';
+      case 'gemma': return '🤖';
+      case 'agentcore': return '☁️';
       default: return '⚙️';
     }
   };

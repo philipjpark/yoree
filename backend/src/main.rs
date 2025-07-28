@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+
 use tracing::{info, error};
 
 mod blockchain;
@@ -15,6 +15,7 @@ mod trading;
 mod ai_strategies;
 mod database;
 mod config;
+mod gemma_proxy;
 
 use blockchain::BNBChainService;
 use trading::TradingService;
@@ -81,7 +82,11 @@ async fn get_balances(
     info!("Getting balances for wallet: {}", request.wallet_address);
     
     match state.bnb_service.get_all_balances(&request.wallet_address).await {
-        Ok(balances) => Json(balances),
+        Ok(balances) => Json(Balances {
+            pyusd: balances.pyusd,
+            tbnb: balances.tbnb,
+            bnb: balances.bnb,
+        }),
         Err(e) => {
             error!("Failed to get balances: {}", e);
             Json(Balances {
@@ -108,7 +113,11 @@ async fn execute_swap(
         Ok(result) => Json(SwapResponse {
             success: true,
             transaction_hash: Some(result.transaction_hash),
-            new_balances: Some(result.new_balances),
+            new_balances: Some(Balances {
+                pyusd: result.new_balances.pyusd,
+                tbnb: result.new_balances.tbnb,
+                bnb: result.new_balances.bnb,
+            }),
             error: None,
         }),
         Err(e) => {
@@ -179,7 +188,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Load configuration
     dotenv::dotenv().ok();
-    let config = config::Config::load()?;
+    let config = config::Config::from_env()?;
     
     // Initialize services
     let bnb_service = Arc::new(BNBChainService::new(&config).await?);
@@ -201,6 +210,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/swap", post(execute_swap))
         .route("/api/strategy", post(create_strategy))
         .route("/api/ai-signals", get(get_ai_signals))
+        .route("/api/gemma", post(gemma_proxy::proxy_gemma))
         .with_state(state);
     
     // Start server

@@ -1,8 +1,8 @@
-use actix_web::{web, HttpResponse, Result};
+use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde::{Deserialize, Serialize};
 use reqwest::Client;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct GemmaRequest {
     pub contents: Vec<Content>,
 }
@@ -29,13 +29,13 @@ pub struct Candidate {
     pub finish_reason: String,
 }
 
-pub async fn proxy_gemma(request: web::Json<GemmaRequest>) -> Result<HttpResponse> {
+pub async fn proxy_gemma(request: Json<GemmaRequest>) -> impl IntoResponse {
     let client = Client::new();
     let gemma_url = "https://yoree-gemma-827561407333.europe-west1.run.app/v1beta/models/gemma3:4b:generateContent";
     
     match client
         .post(gemma_url)
-        .json(&request.into_inner())
+        .json(&request.0)
         .header("Content-Type", "application/json")
         .header("User-Agent", "yoree-backend/1.0")
         .send()
@@ -44,33 +44,42 @@ pub async fn proxy_gemma(request: web::Json<GemmaRequest>) -> Result<HttpRespons
         Ok(response) => {
             match response.json::<serde_json::Value>().await {
                 Ok(data) => {
-                    Ok(HttpResponse::Ok()
-                        .header("Access-Control-Allow-Origin", "*")
-                        .header("Access-Control-Allow-Methods", "POST, OPTIONS")
-                        .header("Access-Control-Allow-Headers", "Content-Type")
-                        .json(data))
+                    (
+                        StatusCode::OK,
+                        [("Access-Control-Allow-Origin", "*")],
+                        Json(data)
+                    ).into_response()
                 }
                 Err(e) => {
                     eprintln!("Error parsing Gemma response: {}", e);
-                    Ok(HttpResponse::InternalServerError().json(serde_json::json!({
-                        "error": "Failed to parse Gemma response"
-                    })))
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({
+                            "error": "Failed to parse Gemma response"
+                        }))
+                    ).into_response()
                 }
             }
         }
         Err(e) => {
             eprintln!("Error calling Gemma API: {}", e);
-            Ok(HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": "Failed to call Gemma API"
-            })))
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": "Failed to call Gemma API"
+                }))
+            ).into_response()
         }
     }
 }
 
-pub async fn handle_options() -> Result<HttpResponse> {
-    Ok(HttpResponse::Ok()
-        .header("Access-Control-Allow-Origin", "*")
-        .header("Access-Control-Allow-Methods", "POST, OPTIONS")
-        .header("Access-Control-Allow-Headers", "Content-Type")
-        .finish())
+pub async fn handle_options() -> impl IntoResponse {
+    (
+        StatusCode::OK,
+        [
+            ("Access-Control-Allow-Origin", "*"),
+            ("Access-Control-Allow-Methods", "POST, OPTIONS"),
+            ("Access-Control-Allow-Headers", "Content-Type"),
+        ]
+    ).into_response()
 } 
