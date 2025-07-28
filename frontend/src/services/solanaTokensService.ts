@@ -25,7 +25,7 @@ class SolanaTokensService {
       address: '0x0000000000000000000000000000000000000000',
       description: 'BNB token on BSC testnet for testing and development purposes.',
       marketCap: 1000000000,
-      price: 300.00,
+      price: 0.000095,
       volume24h: 500000000,
       website: 'https://www.bnbchain.org',
       whitepaper: 'https://www.bnbchain.org/en/whitepaper',

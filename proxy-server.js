@@ -48,4 +48,5 @@ app.listen(PORT, () => {
   console.log(`🚀 YOREE Proxy Server running on http://localhost:${PORT}`);
   console.log(`📡 Proxying requests to Gemma API`);
   console.log(`🔑 API key: ${process.env.GOOGLE_CLOUD_API_KEY ? '✓ Loaded' : '✗ Missing'}`);
+  console.log(`🔍 Environment check: ${process.env.GOOGLE_CLOUD_API_KEY ? 'Key length: ' + process.env.GOOGLE_CLOUD_API_KEY.length : 'No key found'}`);
 }); 

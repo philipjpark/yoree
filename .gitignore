@@ -35,6 +35,9 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Configuration files with sensitive data
+config/agent_config.toml
+
 # Logs
 *.log
 npm-debug.log*
