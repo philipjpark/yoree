@@ -2,6 +2,7 @@
 
 ## 🏆 Featured Finalist in the NYC AI Tinkerers Agentic AI App Hackathon with Google Cloud Run GPUs
 ## 🥈 2025 Permissionless IV Hackathon – 2nd Place Winner
+## 🎤 Selected for Live Demo to BNB Chain Community - July 2025
 
 Yoree is a comprehensive DeFi strategy platform that combines artificial intelligence with blockchain technology to provide users the power to: 
 1. Abstract the core components of building a trading strategy through dropdowns, tl:drs, and visuals. 
