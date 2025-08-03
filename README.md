@@ -11,6 +11,10 @@ Yoree is a comprehensive DeFi strategy platform that combines artificial intelli
 
 > <span style="color:gray;"><i>Originally built as <b>Bibim</b> – now evolved into <b>Yoree</b> with major updates.</i></span>
 
+## 📱 Connect With Us
+
+**🐦 X (Twitter):** [@bibim_official](https://x.com/bibim_official) *(formerly known as Bibim)*
+
 ## 🌟 Components
 
 ### 🤖 AI Agents Powered by Google Cloud & Gemma 3-4B
