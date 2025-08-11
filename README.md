@@ -1,6 +1,6 @@
 # 🍚 YOREE - AI-Powered DeFi Strategy Platform
 
-## 🏆 Featured Finalist in the NYC AI Tinkerers Agentic AI App Hackathon with Google Cloud Run GPUs
+## 🏆 NYC AI Tinkerers Agentic AI App Hackathon with Google Cloud Run GPUs - Featured Finalist
 ## 🥈 2025 Permissionless IV Hackathon – 2nd Place Winner
 ## 🎤 Live Demo Selectee to BNB Chain Community - July 2025
 
