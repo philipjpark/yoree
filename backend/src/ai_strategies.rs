@@ -1,6 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use tracing::{info, error};
+use tracing::info;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
@@ -214,7 +214,7 @@ impl AIStrategyService {
         Ok(recommendations)
     }
     
-    pub async fn backtest_strategy(&self, strategy: &Strategy, historical_data: &[f64]) -> Result<serde_json::Value> {
+    pub async fn backtest_strategy(&self, strategy: &Strategy, _historical_data: &[f64]) -> Result<serde_json::Value> {
         info!("Backtesting strategy: {}", strategy.name);
         
         // Simulate backtesting results

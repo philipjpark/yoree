@@ -27,6 +27,11 @@ pub struct BlockchainConfig {
     pub pyusd_contract: String,
     pub tbnb_contract: String,
     pub private_key: Option<String>,
+    // Additional fields needed by blockchain service
+    pub bnb_rpc_url: String,
+    pub pyusd_address: String,
+    pub strategy_manager_address: String,
+    pub network: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -64,6 +69,14 @@ impl Config {
                 tbnb_contract: env::var("TBNB_CONTRACT_ADDRESS")
                     .unwrap_or_else(|_| "0x0000000000000000000000000000000000000000".to_string()),
                 private_key: env::var("PRIVATE_KEY").ok(),
+                // Additional fields with placeholder values
+                bnb_rpc_url: env::var("BSC_RPC_URL")
+                    .unwrap_or_else(|_| "https://data-seed-prebsc-1-s1.binance.org:8545".to_string()),
+                pyusd_address: env::var("PYUSD_CONTRACT_ADDRESS")
+                    .unwrap_or_else(|_| "0x0000000000000000000000000000000000000000".to_string()),
+                strategy_manager_address: env::var("STRATEGY_MANAGER_ADDRESS")
+                    .unwrap_or_else(|_| "0x0000000000000000000000000000000000000000".to_string()),
+                network: env::var("BSC_NETWORK").unwrap_or_else(|_| "testnet".to_string()),
             },
             ai: AIConfig {
                 model_endpoint: env::var("AI_MODEL_ENDPOINT")
