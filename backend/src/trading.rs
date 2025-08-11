@@ -1,9 +1,9 @@
 use std::sync::Arc;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use tracing::{info, error};
+use tracing::info;
 
-use crate::blockchain::{BNBChainService, SwapResult, Balances};
+use crate::blockchain::{BNBChainService, SwapResult};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct TradingPosition {
@@ -94,7 +94,7 @@ impl TradingService {
         Ok(())
     }
     
-    pub async fn get_trading_positions(&self, wallet_address: &str) -> Result<Vec<TradingPosition>> {
+    pub async fn get_trading_positions(&self, _wallet_address: &str) -> Result<Vec<TradingPosition>> {
         // This would fetch from the database
         // For now, return mock positions
         
@@ -122,7 +122,7 @@ impl TradingService {
         Ok(mock_positions)
     }
     
-    pub async fn get_trading_history(&self, wallet_address: &str) -> Result<Vec<TradingPosition>> {
+    pub async fn get_trading_history(&self, _wallet_address: &str) -> Result<Vec<TradingPosition>> {
         // This would fetch from the database
         // For now, return mock history
         

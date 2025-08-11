@@ -5,6 +5,7 @@ use ethers::{
 };
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
+use std::sync::Arc;
 use anyhow::Result;
 
 use crate::config::Config;
@@ -31,15 +32,15 @@ pub struct BNBChainService {
 
 impl BNBChainService {
     pub async fn new(config: &Config) -> Result<Self> {
-        let provider = Provider::<Http>::try_from(&config.bnb_rpc_url)?;
-        let pyusd_address = Address::from_str(&config.pyusd_address)?;
-        let strategy_manager_address = Address::from_str(&config.strategy_manager_address)?;
+        let provider = Provider::<Http>::try_from(&config.blockchain.bnb_rpc_url)?;
+        let pyusd_address = Address::from_str(&config.blockchain.pyusd_address)?;
+        let strategy_manager_address = Address::from_str(&config.blockchain.strategy_manager_address)?;
         
         Ok(Self {
             provider,
             pyusd_address,
             strategy_manager_address,
-            network: config.network.clone(),
+            network: config.blockchain.network.clone(),
         })
     }
     
@@ -48,7 +49,7 @@ impl BNBChainService {
         
         // Get BNB balance
         let bnb_balance = self.provider.get_balance(address, None).await?;
-        let bnb_balance_str = format!("{:.6}", ethers::utils::format_units(bnb_balance, 18)?);
+        let bnb_balance_str = format!("{:.6}", ethers::utils::format_units(bnb_balance, 18u32)?);
         
         // Get PYUSD balance
         let pyusd_balance = self.get_pyusd_balance(&address).await?;
@@ -70,16 +71,17 @@ impl BNBChainService {
             {"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}
         ]"#;
         
-        let contract = Contract::new(self.pyusd_address, abi.parse()?, self.provider.clone());
+        let abi: ethers::abi::Abi = serde_json::from_str(abi)?;
+        let contract = Contract::new(self.pyusd_address, abi, Arc::new(self.provider.clone()));
         
         // Get balance
-        let balance: U256 = contract.method("balanceOf", address)??.call().await?;
+        let balance: U256 = contract.method("balanceOf", *address)?.call().await?;
         
         // Get decimals
-        let decimals: u8 = contract.method("decimals", ())??.call().await?;
+        let decimals: u8 = contract.method("decimals", ())?.call().await?;
         
-        // Format balance
-        let balance_str = format!("{:.6}", ethers::utils::format_units(balance, decimals)?);
+        // Format balance - convert decimals to proper Units type
+        let balance_str = format!("{:.6}", ethers::utils::format_units(balance, decimals as u32)?);
         
         Ok(balance_str)
     }
@@ -94,7 +96,7 @@ impl BNBChainService {
         // This would integrate with PancakeSwap or similar DEX
         // For now, we'll simulate the swap
         
-        let address = Address::from_str(wallet_address)?;
+        let _address = Address::from_str(wallet_address)?;
         let current_balances = self.get_all_balances(wallet_address).await?;
         
         // Simulate swap calculation
@@ -140,12 +142,12 @@ impl BNBChainService {
     pub async fn create_strategy(
         &self,
         name: &str,
-        description: &str,
+        _description: &str,
         target_token: &str,
         stop_loss: f64,
         take_profit: f64,
         position_size: f64,
-        wallet_address: &str,
+        _wallet_address: &str,
     ) -> Result<String> {
         // This would interact with the StrategyManager smart contract
         // For now, we'll simulate the transaction
@@ -171,7 +173,7 @@ impl BNBChainService {
         
         for (addr, price) in mock_prices {
             if addr.to_lowercase() == token_address.to_lowercase() {
-                return Ok(*price);
+                return Ok(price);
             }
         }
         

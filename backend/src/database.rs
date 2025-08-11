@@ -1,7 +1,9 @@
-use sqlx::{PgPool, Row};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
+use std::sync::Mutex;
+use std::sync::Arc;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct User {
@@ -25,190 +27,122 @@ pub struct Transaction {
 }
 
 pub struct DatabaseService {
-    pool: PgPool,
+    // Mock database using in-memory storage
+    users: Arc<Mutex<HashMap<String, User>>>,
+    transactions: Arc<Mutex<HashMap<String, Transaction>>>,
+    strategies: Arc<Mutex<HashMap<String, crate::ai_strategies::Strategy>>>,
 }
 
 impl DatabaseService {
-    pub async fn new(database_url: &str) -> Result<Self> {
-        let pool = PgPool::connect(database_url).await?;
-        
-        // Run migrations
-        sqlx::migrate!("./migrations").run(&pool).await?;
-        
-        Ok(Self { pool })
+    pub async fn new(_database_url: &str) -> Result<Self> {
+        // Mock database - no real connection needed
+        Ok(Self {
+            users: Arc::new(Mutex::new(HashMap::new())),
+            transactions: Arc::new(Mutex::new(HashMap::new())),
+            strategies: Arc::new(Mutex::new(HashMap::new())),
+        })
     }
     
     pub async fn create_user(&self, wallet_address: &str) -> Result<User> {
-        let user = sqlx::query_as!(
-            User,
-            r#"
-            INSERT INTO users (wallet_address, created_at, updated_at)
-            VALUES ($1, $2, $3)
-            RETURNING id, wallet_address, username, created_at, updated_at
-            "#,
-            wallet_address,
-            Utc::now(),
-            Utc::now()
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let user = User {
+            id: uuid::Uuid::new_v4().to_string(),
+            wallet_address: wallet_address.to_string(),
+            username: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        
+        let mut users = self.users.lock().unwrap();
+        users.insert(user.id.clone(), user.clone());
         
         Ok(user)
     }
     
     pub async fn get_user(&self, wallet_address: &str) -> Result<Option<User>> {
-        let user = sqlx::query_as!(
-            User,
-            r#"
-            SELECT id, wallet_address, username, created_at, updated_at
-            FROM users
-            WHERE wallet_address = $1
-            "#,
-            wallet_address
-        )
-        .fetch_optional(&self.pool)
-        .await?;
+        let users = self.users.lock().unwrap();
+        let user = users.values().find(|u| u.wallet_address == wallet_address).cloned();
         
         Ok(user)
     }
     
     pub async fn save_transaction(&self, transaction: &Transaction) -> Result<()> {
-        sqlx::query!(
-            r#"
-            INSERT INTO transactions (id, wallet_address, transaction_hash, from_token, to_token, amount, status, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            "#,
-            transaction.id,
-            transaction.wallet_address,
-            transaction.transaction_hash,
-            transaction.from_token,
-            transaction.to_token,
-            transaction.amount,
-            transaction.status,
-            transaction.created_at
-        )
-        .execute(&self.pool)
-        .await?;
+        let mut transactions = self.transactions.lock().unwrap();
+        transactions.insert(transaction.id.clone(), transaction.clone());
         
         Ok(())
     }
     
     pub async fn get_user_transactions(&self, wallet_address: &str) -> Result<Vec<Transaction>> {
-        let transactions = sqlx::query_as!(
-            Transaction,
-            r#"
-            SELECT id, wallet_address, transaction_hash, from_token, to_token, amount, status, created_at
-            FROM transactions
-            WHERE wallet_address = $1
-            ORDER BY created_at DESC
-            LIMIT 50
-            "#,
-            wallet_address
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let transactions = self.transactions.lock().unwrap();
+        let user_transactions: Vec<Transaction> = transactions
+            .values()
+            .filter(|t| t.wallet_address == wallet_address)
+            .cloned()
+            .collect();
         
-        Ok(transactions)
+        Ok(user_transactions)
     }
     
     pub async fn save_strategy(&self, strategy: &crate::ai_strategies::Strategy) -> Result<()> {
-        sqlx::query!(
-            r#"
-            INSERT INTO strategies (id, name, description, target_token, stop_loss, take_profit, position_size, creator_address, is_active, total_return, total_trades, win_rate, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-            "#,
-            strategy.id,
-            strategy.name,
-            strategy.description,
-            strategy.target_token,
-            strategy.stop_loss,
-            strategy.take_profit,
-            strategy.position_size,
-            strategy.creator_address,
-            strategy.is_active,
-            strategy.total_return,
-            strategy.total_trades,
-            strategy.win_rate,
-            strategy.created_at,
-            strategy.updated_at
-        )
-        .execute(&self.pool)
-        .await?;
+        let mut strategies = self.strategies.lock().unwrap();
+        strategies.insert(strategy.id.clone(), strategy.clone());
         
         Ok(())
     }
     
     pub async fn get_user_strategies(&self, wallet_address: &str) -> Result<Vec<crate::ai_strategies::Strategy>> {
-        let strategies = sqlx::query_as!(
-            crate::ai_strategies::Strategy,
-            r#"
-            SELECT id, name, description, target_token, stop_loss, take_profit, position_size, creator_address, is_active, total_return, total_trades, win_rate, created_at, updated_at
-            FROM strategies
-            WHERE creator_address = $1
-            ORDER BY created_at DESC
-            "#,
-            wallet_address
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let strategies = self.strategies.lock().unwrap();
+        let user_strategies: Vec<crate::ai_strategies::Strategy> = strategies
+            .values()
+            .filter(|s| s.creator_address == wallet_address)
+            .cloned()
+            .collect();
         
-        Ok(strategies)
+        Ok(user_strategies)
     }
     
     pub async fn update_strategy_performance(&self, strategy_id: &str, total_return: f64, total_trades: u32, win_rate: f64) -> Result<()> {
-        sqlx::query!(
-            r#"
-            UPDATE strategies
-            SET total_return = $1, total_trades = $2, win_rate = $3, updated_at = $4
-            WHERE id = $5
-            "#,
-            total_return,
-            total_trades,
-            win_rate,
-            Utc::now(),
-            strategy_id
-        )
-        .execute(&self.pool)
-        .await?;
+        let mut strategies = self.strategies.lock().unwrap();
+        if let Some(strategy) = strategies.get_mut(strategy_id) {
+            strategy.total_return = total_return;
+            strategy.total_trades = total_trades;
+            strategy.win_rate = win_rate;
+            strategy.updated_at = Utc::now();
+        }
         
         Ok(())
     }
     
     pub async fn get_portfolio_stats(&self, wallet_address: &str) -> Result<serde_json::Value> {
+        let transactions = self.transactions.lock().unwrap();
+        let strategies = self.strategies.lock().unwrap();
+        
         // Get total transactions
-        let total_transactions: i64 = sqlx::query_scalar!(
-            "SELECT COUNT(*) FROM transactions WHERE wallet_address = $1",
-            wallet_address
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let total_transactions = transactions
+            .values()
+            .filter(|t| t.wallet_address == wallet_address)
+            .count() as i64;
         
         // Get total strategies
-        let total_strategies: i64 = sqlx::query_scalar!(
-            "SELECT COUNT(*) FROM strategies WHERE creator_address = $1",
-            wallet_address
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let total_strategies = strategies
+            .values()
+            .filter(|s| s.creator_address == wallet_address)
+            .count() as i64;
         
-        // Get recent activity
-        let recent_transactions = sqlx::query!(
-            r#"
-            SELECT from_token, to_token, amount, created_at
-            FROM transactions
-            WHERE wallet_address = $1
-            ORDER BY created_at DESC
-            LIMIT 5
-            "#,
-            wallet_address
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        // Get recent activity (mock data for now)
+        let recent_activity = vec![
+            serde_json::json!({
+                "from_token": "BNB",
+                "to_token": "PYUSD",
+                "amount": "0.1",
+                "created_at": Utc::now()
+            })
+        ];
         
         let stats = serde_json::json!({
             "total_transactions": total_transactions,
             "total_strategies": total_strategies,
-            "recent_activity": recent_transactions,
+            "recent_activity": recent_activity,
             "last_updated": Utc::now()
         });
         

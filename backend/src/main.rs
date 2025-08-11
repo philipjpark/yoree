@@ -194,7 +194,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bnb_service = Arc::new(BNBChainService::new(&config).await?);
     let trading_service = Arc::new(TradingService::new(Arc::clone(&bnb_service)).await?);
     let ai_service = Arc::new(AIStrategyService::new().await?);
-    let db = Arc::new(DatabaseService::new(&config.database_url).await?);
+    let db = Arc::new(DatabaseService::new(&config.database.url).await?);
     
     let state = AppState {
         bnb_service,
