@@ -8,6 +8,9 @@
     "dev": "cd frontend && npm start",
     "build": "cd frontend && npm run build",
     "test": "cd frontend && npm test",
+    "setup": "node scripts/setup-environment.js",
+    "validate": "npx hardhat run scripts/validate-deployment.js --network bscTestnet",
+    "test-core": "npx hardhat run scripts/test-core-functions.js --network bscTestnet",
     "deploy": "npx hardhat run scripts/deploy.js --network bscTestnet",
     "generate-tx": "npx hardhat run scripts/generate-transactions.js --network bscTestnet",
     "check-balance": "npx hardhat run scripts/check-balance.js --network bscTestnet"

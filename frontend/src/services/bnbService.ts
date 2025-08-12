@@ -57,7 +57,7 @@ export const BNB_TOKENS = [
 ];
 
 class BNBService {
-  private provider: ethers.providers.Web3Provider | null = null;
+  private provider: ethers.BrowserProvider | null = null;
   private signer: ethers.Signer | null = null;
   private contract: ethers.Contract | null = null;
   private network: 'testnet' | 'mainnet' = 'testnet';
@@ -68,7 +68,7 @@ class BNBService {
 
   private initializeProvider() {
     if (typeof window !== 'undefined' && window.ethereum) {
-      this.provider = new ethers.providers.Web3Provider(window.ethereum);
+      this.provider = new ethers.BrowserProvider(window.ethereum);
       this.signer = this.provider.getSigner();
     }
   }
@@ -85,7 +85,7 @@ class BNBService {
       
       // Get network
       const network = await this.provider.getNetwork();
-      this.network = network.chainId === 97 ? 'testnet' : 'mainnet';
+      this.network = network.chainId === 97n ? 'testnet' : 'mainnet';
       
       // Initialize contract
       if (!this.signer) throw new Error('Signer not initialized');
@@ -107,7 +107,7 @@ class BNBService {
     if (!this.provider) throw new Error('Provider not initialized');
     
     const balance = await this.provider.getBalance(address);
-    return ethers.utils.formatEther(balance);
+    return ethers.formatEther(balance);
   }
 
   async getTokenBalance(tokenAddress: string, userAddress: string): Promise<string> {
@@ -124,7 +124,7 @@ class BNBService {
       tokenContract.decimals()
     ]);
     
-    return ethers.utils.formatUnits(balance, decimals);
+    return ethers.formatUnits(balance, decimals);
   }
 
   async getPYUSDBalance(userAddress: string): Promise<string> {
@@ -132,9 +132,9 @@ class BNBService {
       if (this.network === 'mainnet') {
         return await this.getTokenBalance(PAYPAL_USD_ADDRESS.mainnet, userAddress);
       } else {
-        // For testnet, return mock balance for philxdaegu
-        if (userAddress.toLowerCase() === '0x742d35cc6634c0532925a3b8d4c9db96c4b4d8b6') {
-          return '1000.00'; // Mock PYUSD balance for philxdaegu
+        // For testnet, use mock PYUSD address
+        if (MOCK_PYUSD_ADDRESS === '0x0000000000000000000000000000000000000000') {
+          return '0.00'; // Return 0 if mock address not set
         }
         return await this.getTokenBalance(MOCK_PYUSD_ADDRESS, userAddress);
       }
@@ -173,33 +173,40 @@ class BNBService {
     stopLoss: number,
     takeProfit: number,
     positionSize: number
-  ): Promise<ethers.ContractTransaction> {
+  ): Promise<ethers.ContractTransactionResponse> {
     if (!this.contract) throw new Error('Contract not initialized');
 
     const tx = await this.contract.createStrategy(
       name,
       description,
       targetToken,
-      ethers.utils.parseUnits(stopLoss.toString(), 18),
-      ethers.utils.parseUnits(takeProfit.toString(), 18),
-      ethers.utils.parseUnits(positionSize.toString(), 18)
+      ethers.parseUnits(stopLoss.toString(), 18),
+      ethers.parseUnits(takeProfit.toString(), 18),
+      ethers.parseUnits(positionSize.toString(), 18)
     );
 
     console.log('📝 Creating strategy:', tx.hash);
     return tx;
   }
 
-  async openPosition(strategyId: number, amount: string): Promise<ethers.ContractTransaction> {
+  async openPosition(strategyId: number, amount: string): Promise<ethers.ContractTransactionResponse> {
     if (!this.contract || !this.signer) throw new Error('Contract or signer not initialized');
+
+    // Determine which PYUSD address to use based on network
+    const pyusdAddress = this.network === 'mainnet' ? PAYPAL_USD_ADDRESS.mainnet : MOCK_PYUSD_ADDRESS;
+    
+    if (pyusdAddress === '0x0000000000000000000000000000000000000000') {
+      throw new Error('PYUSD address not configured for this network');
+    }
 
     // First approve PYUSD spending
     const paypalUSD = new ethers.Contract(
-      PAYPAL_USD_ADDRESS[this.network],
+      pyusdAddress,
       ['function approve(address,uint256) returns (bool)'],
       this.signer!
     );
 
-    const amountWei = ethers.utils.parseUnits(amount, 6); // PYUSD has 6 decimals
+    const amountWei = ethers.parseUnits(amount, 6); // PYUSD has 6 decimals
     await paypalUSD.approve(this.contract.address, amountWei);
 
     const tx = await this.contract.openPosition(strategyId, amountWei);
@@ -207,7 +214,7 @@ class BNBService {
     return tx;
   }
 
-  async closePosition(positionIndex: number): Promise<ethers.ContractTransaction> {
+  async closePosition(positionIndex: number): Promise<ethers.ContractTransactionResponse> {
     if (!this.contract) throw new Error('Contract not initialized');
 
     const tx = await this.contract.closePosition(positionIndex);
@@ -220,20 +227,20 @@ class BNBService {
 
     const strategy = await this.contract.getStrategy(strategyId);
     return {
-      id: strategy.id.toNumber(),
+      id: Number(strategy.id),
       creator: strategy.creator,
       name: strategy.name,
       description: strategy.description,
       targetToken: strategy.targetToken,
-      entryPrice: ethers.utils.formatUnits(strategy.entryPrice, 18),
-      stopLoss: ethers.utils.formatUnits(strategy.stopLoss, 18),
-      takeProfit: ethers.utils.formatUnits(strategy.takeProfit, 18),
-      positionSize: ethers.utils.formatUnits(strategy.positionSize, 18),
+      entryPrice: ethers.formatUnits(strategy.entryPrice, 18),
+      stopLoss: ethers.formatUnits(strategy.stopLoss, 18),
+      takeProfit: ethers.formatUnits(strategy.takeProfit, 18),
+      positionSize: ethers.formatUnits(strategy.positionSize, 18),
       isActive: strategy.isActive,
-      createdAt: new Date(strategy.createdAt.toNumber() * 1000),
-      totalReturn: ethers.utils.formatUnits(strategy.totalReturn, 18),
-      totalTrades: strategy.totalTrades.toNumber(),
-      winRate: strategy.winRate.toNumber()
+      createdAt: new Date(Number(strategy.createdAt) * 1000),
+      totalReturn: ethers.formatUnits(strategy.totalReturn, 18),
+      totalTrades: Number(strategy.totalTrades),
+      winRate: Number(strategy.winRate)
     };
   }
 
@@ -242,10 +249,10 @@ class BNBService {
 
     const positions = await this.contract.getUserPositions(userAddress);
     return positions.map((pos: any) => ({
-      strategyId: pos.strategyId.toNumber(),
-      amount: ethers.utils.formatUnits(pos.amount, 18),
-      entryPrice: ethers.utils.formatUnits(pos.entryPrice, 18),
-      timestamp: new Date(pos.timestamp.toNumber() * 1000),
+      strategyId: Number(pos.strategyId),
+      amount: ethers.formatUnits(pos.amount, 18),
+      entryPrice: ethers.formatUnits(pos.entryPrice, 18),
+      timestamp: new Date(Number(pos.timestamp) * 1000),
       isOpen: pos.isOpen
     }));
   }
@@ -255,8 +262,8 @@ class BNBService {
 
     const [totalVolume, totalProfit] = await this.contract.getUserStats(userAddress);
     return {
-      totalVolume: ethers.utils.formatUnits(totalVolume, 18),
-      totalProfit: ethers.utils.formatUnits(totalProfit, 18)
+      totalVolume: ethers.formatUnits(totalVolume, 18),
+      totalProfit: ethers.formatUnits(totalProfit, 18)
     };
   }
 
@@ -264,7 +271,7 @@ class BNBService {
     if (!this.contract) throw new Error('Contract not initialized');
 
     const price = await this.contract.getCurrentPrice(tokenAddress);
-    return ethers.utils.formatUnits(price, 18);
+    return ethers.formatUnits(price, 18);
   }
 
   // AI Trading Signals (mock for now, integrate with real AI service)
@@ -313,7 +320,7 @@ class BNBService {
     if (!this.provider) return false;
 
     const network = await this.provider.getNetwork();
-    return network.chainId === 56 || network.chainId === 97; // BSC Mainnet or Testnet
+    return network.chainId === 56n || network.chainId === 97n; // BSC Mainnet or Testnet
   }
 
   // Switch to BSC Testnet
@@ -336,6 +343,32 @@ class BNBService {
       console.error('Failed to switch network:', error);
       throw error;
     }
+  }
+
+  // Validate contract deployment
+  async validateContractDeployment(): Promise<boolean> {
+    if (!this.contract) return false;
+    
+    try {
+      // Try to call a simple view function to verify contract exists
+      await this.contract.strategyCount();
+      return true;
+    } catch (error) {
+      console.error('Contract validation failed:', error);
+      return false;
+    }
+  }
+
+  // Get network info
+  async getNetworkInfo(): Promise<{chainId: number, name: string, isTestnet: boolean}> {
+    if (!this.provider) throw new Error('Provider not initialized');
+    
+    const network = await this.provider.getNetwork();
+    return {
+      chainId: Number(network.chainId),
+      name: network.chainId === 97n ? 'BSC Testnet' : 'BSC Mainnet',
+      isTestnet: network.chainId === 97n
+    };
   }
 }
 
