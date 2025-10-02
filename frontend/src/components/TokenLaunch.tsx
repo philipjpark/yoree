@@ -28,7 +28,7 @@ const TokenLaunch: React.FC = () => {
   const features = [
     {
       title: 'Governance Rights',
-              description: 'YOREE token holders can participate in platform governance and strategy voting.',
+              description: 'YREE token holders can participate in platform governance and strategy voting.',
       icon: <GavelIcon sx={{ fontSize: 40 }} />,
       color: '#667eea'
     },
@@ -87,7 +87,7 @@ const TokenLaunch: React.FC = () => {
                 mb: 2
               }}
             >
-              YOREE Token Launch
+              YREE Token Launch
             </Typography>
             <Typography
               variant="h5"
@@ -99,7 +99,7 @@ const TokenLaunch: React.FC = () => {
                 lineHeight: 1.6
               }}
             >
-              Join the future of AI-powered crypto trading with Yoree's native token
+              Join the future of AI-powered crypto trading with YREE's native token
             </Typography>
           </Box>
 

@@ -634,7 +634,7 @@ const TokenIncentivization: React.FC = () => {
               YOREE Reward Tiers
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Earn YOREE tokens based on your coefficient ranking and achievements.
+              Earn YREE tokens based on your coefficient ranking and achievements.
             </Typography>
 
             <Grid container spacing={3}>
@@ -913,7 +913,7 @@ const TokenIncentivization: React.FC = () => {
               color: 'primary.main',
             }}
           >
-            YOREE Token Incentivization
+            YREE Token Incentivization
           </Typography>
 
           <Paper
