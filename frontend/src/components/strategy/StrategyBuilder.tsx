@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import solAgentService, { SOLStrategyRequest, SOLStrategyResponse } from '../../services/solAgentService';
+import openaiCodexService, { CodexStrategyRequest, CodexStrategyResponse } from '../../services/openaiCodexService';
 import Backtester from '../backtest/Backtester';
 import StrategyBuilderComponent from './SOLStrategyBuilder';
 import {
@@ -22,34 +23,27 @@ import {
   CircularProgress,
   Alert,
   Chip,
-  ToggleButtonGroup,
-  ToggleButton,
   LinearProgress
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { strategyApi, llmApi } from '../../services/api';
 import SentimentAnalysis from './SentimentAnalysis';
 import TokenSelector from './TokenSelector';
-import TradingViewWidget from './TradingViewWidget';
-import BacktestResults from './BacktestResults';
 import TraditionalStrategySelector from './TraditionalStrategySelector';
 import StrategyStringBuilder from './StrategyStringBuilder';
 import PDFUploader from './PDFUploader';
-import geminiService from '../../services/geminiService';
+import AgentProgressScreen from './AgentProgressScreen';
+import UnderConstructionScreen from './UnderConstructionScreen';
+import ApiKeyTest from '../test/ApiKeyTest';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { 
   PlayArrow as DeployIcon, 
   ContentCopy as ContentCopyIcon, 
-  Code as CodeIcon,
-  CurrencyBitcoin as BnbIcon,
-  AccountBalance as SolanaIcon
+  Code as CodeIcon
 } from '@mui/icons-material';
 import strategyService, { StrategyConfig } from '../../services/strategyService';
 import { SolanaToken } from '../../services/solanaTokensService';
 import { TraditionalStrategy } from '../../services/traditionalFinanceStrategies';
-import bnbService from '../../services/bnbService';
-import paypalService from '../../services/paypalService';
 
 interface StrategyParameters {
   coin: string;
@@ -147,7 +141,17 @@ const StrategyBuilder: React.FC = () => {
   // Add traditional strategy state
   const [selectedTraditionalStrategy, setSelectedTraditionalStrategy] = useState<TraditionalStrategy | null>(null);
   const [sentimentAnalysis, setSentimentAnalysis] = useState<any>(null);
-  const [modelType, setModelType] = useState<'gemma' | 'agentcore'>('gemma');
+  const [modelType, setModelType] = useState<'codex' | 'gemma' | 'agentcore'>('codex');
+  const [showProgressScreen, setShowProgressScreen] = useState(false);
+  const [currentAgent, setCurrentAgent] = useState('');
+  const [agentProgress, setAgentProgress] = useState(0);
+  const [agentMessage, setAgentMessage] = useState('');
+  const [showUnderConstruction, setShowUnderConstruction] = useState(false);
+  
+  // Debug log for modelType changes
+  React.useEffect(() => {
+    console.log('🔧 ModelType changed to:', modelType);
+  }, [modelType]);
 
   const [parameters, setParameters] = useState<StrategyParameters>({
     coin: 'tBNB',
@@ -172,7 +176,7 @@ const StrategyBuilder: React.FC = () => {
   const [customModifications, setCustomModifications] = useState('');
   const [selectedToken, setSelectedToken] = useState<SolanaToken | null>(null);
   const [useSOLAgents, setUseSOLAgents] = useState(false);
-  const [agentStrategy, setAgentStrategy] = useState<SOLStrategyResponse | null>(null);
+  const [agentStrategy, setAgentStrategy] = useState<SOLStrategyResponse | CodexStrategyResponse | null>(null);
   const [isGeneratingWithAgents, setIsGeneratingWithAgents] = useState(false);
   const [showBacktester, setShowBacktester] = useState(false);
 
@@ -486,41 +490,512 @@ Focus on the most important actionable insight and keep it simple.`;
     setLoading(true);
     setError('');
     setIsGeneratingWithAgents(true);
+    setShowProgressScreen(true);
+    setAgentProgress(0);
+    setAgentMessage('Initializing AI agents...');
 
     try {
-      // Use AI agents for all tokens now
-      console.log('🤖 Starting AI Agent Strategy Generation...');
+      console.log('🤖 Starting Strategy Generation...');
+      console.log('🔍 Selected Token:', selectedToken);
+      console.log('🔍 Model Type:', modelType);
+      console.log('🔍 Is Codex selected?', modelType === 'codex');
       
-      // Create agent request with all form data
-      const agentRequest: SOLStrategyRequest = {
-        asset: selectedToken?.symbol || parameters.coin,
-        timeframe: parameters.timeframe,
-        riskLevel: parameters.riskManagement.positionSize <= 1 ? 'low' : 
-                  parameters.riskManagement.positionSize <= 3 ? 'moderate' : 'high',
-        investmentAmount: parameters.riskManagement.positionSize * 1000, // Convert to dollar amount
-        walletBalance: 10000, // Default wallet balance
-      };
+      let agentResult;
       
-      // Generate strategy with all 4 agents for any token
-      const agentResult = await solAgentService.generateSOLStrategy(agentRequest);
+      if (modelType === 'codex') {
+        console.log('🎯 Using OpenAI Codex service...');
+        
+        // Sequence 1: Market Analyzer (Sentiment Analysis)
+        setCurrentAgent('sentiment');
+        setAgentMessage('🔍 Scanning social media sentiment, news impact, and market psychology...');
+        setAgentProgress(15);
+        
+        setTimeout(() => {
+          setAgentProgress(30);
+          setAgentMessage('📊 Sentiment analysis complete. Processing technical indicators...');
+        }, 2000);
+        
+        // Sequence 2: Technical Analyzer
+        setTimeout(() => {
+          setCurrentAgent('technical');
+          setAgentMessage('📈 Analyzing RSI, MACD, moving averages, and chart patterns...');
+          setAgentProgress(45);
+        }, 4000);
+        
+        setTimeout(() => {
+          setAgentProgress(60);
+          setAgentMessage('⚡ Technical analysis complete. Evaluating risk parameters...');
+        }, 6000);
+        
+        // Sequence 3: Risk Manager
+        setTimeout(() => {
+          setCurrentAgent('risk');
+          setAgentMessage('🛡️ Calculating position sizing, stop-losses, and risk-reward ratios...');
+          setAgentProgress(75);
+        }, 8000);
+        
+        setTimeout(() => {
+          setAgentProgress(85);
+          setAgentMessage('✅ Risk assessment complete. Generating final strategy...');
+        }, 10000);
+        
+        // Sequence 4: Strategy Generator (Codex)
+        setTimeout(() => {
+          setCurrentAgent('codex');
+          setAgentMessage('🧠 Synthesizing all data into comprehensive trading strategy...');
+          setAgentProgress(95);
+        }, 12000);
+        
+        console.log('🔍 Codex service will be called with:', {
+          token: selectedToken?.symbol || parameters.coin,
+          modelType: modelType,
+          hasApiKey: !!openaiCodexService
+        });
+        
+        // Use OpenAI Codex for strategy generation
+        const codexRequest: CodexStrategyRequest = {
+          token: selectedToken?.symbol || parameters.coin,
+          timeframe: parameters.timeframe,
+          riskLevel: parameters.riskManagement.positionSize <= 1 ? 'low' : 
+                    parameters.riskManagement.positionSize <= 3 ? 'moderate' : 'high',
+          investmentAmount: parameters.riskManagement.positionSize * 1000,
+          walletBalance: 10000,
+          marketData: selectedToken ? {
+            price: selectedToken.price || 0,
+            price_change_percentage_24h: selectedToken.priceChangePercentage24h || 0,
+            market_cap: selectedToken.marketCap || 0,
+            volume_24h: selectedToken.volume24h || 0
+          } : undefined
+        };
+        
+        agentResult = await openaiCodexService.generateStrategy(codexRequest);
+        console.log('✅ Codex service completed:', agentResult);
+        
+        setAgentProgress(100);
+        setAgentMessage('Strategy generation completed successfully!');
+      } else {
+        console.log('🎯 Using SOL Agent service...');
+        setCurrentAgent('sentiment');
+        setAgentMessage('SOL Agent is processing market data...');
+        setAgentProgress(50);
+        
+        // Use existing SOL Agent Service for other models
+        const agentRequest: SOLStrategyRequest = {
+          asset: selectedToken?.symbol || parameters.coin,
+          timeframe: parameters.timeframe,
+          riskLevel: parameters.riskManagement.positionSize <= 1 ? 'low' : 
+                    parameters.riskManagement.positionSize <= 3 ? 'moderate' : 'high',
+          investmentAmount: parameters.riskManagement.positionSize * 1000,
+          walletBalance: 10000,
+        };
+        
+        agentResult = await solAgentService.generateSOLStrategy(agentRequest);
+        console.log('✅ SOL Agent service completed:', agentResult);
+        
+        setAgentProgress(100);
+        setAgentMessage('Strategy generation completed successfully!');
+      }
+      
       setAgentStrategy(agentResult);
+      console.log('✅ Strategy Generated Successfully!');
       
-      console.log('✅ AI Agent Strategy Generated Successfully!');
+      // Hide progress screen after a short delay
+      setTimeout(() => {
+        setShowProgressScreen(false);
+        handleNext();
+      }, 1500);
       
-      handleNext();
     } catch (err: any) {
       console.error('❌ Strategy generation failed:', err);
       setError(err.message || 'Failed to generate strategy');
+      setShowProgressScreen(false);
     } finally {
       setLoading(false);
       setIsGeneratingWithAgents(false);
     }
   };
 
+  const handleRegenerateStrategy = () => {
+    setAgentStrategy(null);
+    setShowProgressScreen(false);
+    setAgentProgress(0);
+    setAgentMessage('');
+    setActiveStep(7); // Go back to step 7 (strategy generation step)
+    handleGenerateStrategy();
+  };
+
+  const renderStrategyResults = () => {
+    return (
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.6 }}
+      >
+        <Paper
+          elevation={8}
+          sx={{
+            background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+            borderRadius: 4,
+            overflow: 'hidden',
+            border: '2px solid #e3e8f0',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.08)'
+          }}
+        >
+          {/* Header */}
+          <Box
+            sx={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              p: 3,
+              borderBottom: '1px solid #e3e8f0'
+            }}
+          >
+            <Grid container alignItems="center" spacing={2}>
+              <Grid item>
+                <Box
+                  sx={{
+                    width: 60,
+                    height: 60,
+                    borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.9)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '24px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                  }}
+                >
+                  🧠
+                </Box>
+              </Grid>
+              <Grid item xs>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 0.5, color: 'white' }}>
+                 🎯 Yoree-Generated Trading Strategy
+                </Typography>
+                <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.9)' }}>
+                  {parameters.coin} • {parameters.strategyType} • {parameters.timeframe}
+                  {pdfSummary && ' • Research-Driven'}
+                </Typography>
+              </Grid>
+            </Grid>
+          </Box>
+
+          {/* Strategy Content */}
+          <Box sx={{ p: 4 }}>
+            {agentStrategy ? (
+              // Show AI Agent Results
+              <Grid container spacing={3}>
+                {/* Strategy Parameters */}
+                <Grid item xs={12} md={6}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#4a5568' }}>
+                    📊 Strategy Parameters
+                  </Typography>
+                  <Box sx={{ display: 'grid', gap: 2, mb: 3 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography>Entry Price:</Typography>
+                      <Typography fontWeight="bold">${agentStrategy.strategy.entry.toFixed(2)}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography>Target Price:</Typography>
+                      <Typography fontWeight="bold" color="success.main">
+                        ${agentStrategy.strategy.target.toFixed(2)}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography>Stop Loss:</Typography>
+                      <Typography fontWeight="bold" color="error.main">
+                        ${agentStrategy.strategy.stopLoss.toFixed(2)}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography>Position Size:</Typography>
+                      <Typography fontWeight="bold">${agentStrategy.strategy.positionSize.toFixed(2)}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography>Confidence:</Typography>
+                      <Typography fontWeight="bold">{agentStrategy.strategy.confidence}%</Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+
+                {/* Market Analysis */}
+                <Grid item xs={12} md={6}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#4a5568' }}>
+                    📈 Market Analysis
+                  </Typography>
+                  <Box sx={{ mb: 2 }}>
+                    <Chip 
+                      label={'marketTrend' in agentStrategy.analysis ? agentStrategy.analysis.marketTrend : 'Market Analysis'} 
+                      color={'marketTrend' in agentStrategy.analysis && agentStrategy.analysis.marketTrend === 'Bullish' ? 'success' : 'error'}
+                      sx={{ mb: 1 }}
+                    />
+                  </Box>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Technical Signals:</strong>
+                  </Typography>
+                  <Box sx={{ mb: 2 }}>
+                    {'technicalSignals' in agentStrategy.analysis ? 
+                      agentStrategy.analysis.technicalSignals.map((signal: string, index: number) => (
+                        <Chip 
+                          key={index} 
+                          label={signal} 
+                          size="small" 
+                          variant="outlined" 
+                          sx={{ mr: 1, mb: 1 }}
+                        />
+                      )) : (
+                        <Typography variant="body2" color="text.secondary">
+                          {agentStrategy.analysis.technical}
+                        </Typography>
+                      )
+                    }
+                  </Box>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Recommendations:</strong>
+                  </Typography>
+                  <Box>
+                    {'recommendations' in agentStrategy.analysis ? 
+                      agentStrategy.analysis.recommendations.map((rec: string, index: number) => (
+                        <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
+                          • {rec}
+                        </Typography>
+                      )) : (
+                        <Typography variant="body2" color="text.secondary">
+                          {agentStrategy.analysis.fundamental}
+                        </Typography>
+                      )
+                    }
+                  </Box>
+                </Grid>
+
+                {/* Live Market Data */}
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#4a5568' }}>
+                    📊 Live Market Data
+                  </Typography>
+                  <Box sx={{ 
+                    background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                    borderRadius: 3,
+                    p: 3,
+                    display: 'flex',
+                    justifyContent: 'space-around',
+                    flexWrap: 'wrap',
+                    gap: 2,
+                    border: '1px solid #e3e8f0',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                  }}>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="h6" fontWeight="bold">
+                        ${'marketData' in agentStrategy ? agentStrategy.marketData.price.toFixed(2) : selectedToken?.price?.toFixed(2) || 'N/A'}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">Current Price</Typography>
+                    </Box>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography 
+                        variant="h6" 
+                        fontWeight="bold"
+                        color={('marketData' in agentStrategy ? agentStrategy.marketData.price_change_percentage_24h : selectedToken?.priceChangePercentage24h || 0) >= 0 ? 'success.main' : 'error.main'}
+                      >
+                        {('marketData' in agentStrategy ? agentStrategy.marketData.price_change_percentage_24h : selectedToken?.priceChangePercentage24h || 0) >= 0 ? '+' : ''}
+                        {('marketData' in agentStrategy ? agentStrategy.marketData.price_change_percentage_24h : selectedToken?.priceChangePercentage24h || 0).toFixed(2)}%
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">24h Change</Typography>
+                    </Box>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="h6" fontWeight="bold">
+                        ${'marketData' in agentStrategy ? (agentStrategy.marketData.volume_24h / 1000000).toFixed(1) : selectedToken?.volume24h ? (selectedToken.volume24h / 1000000).toFixed(1) : 'N/A'}M
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">24h Volume</Typography>
+                    </Box>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="h6" fontWeight="bold">
+                        ${'marketData' in agentStrategy ? (agentStrategy.marketData.market_cap / 1000000000).toFixed(1) : selectedToken?.marketCap ? (selectedToken.marketCap / 1000000000).toFixed(1) : 'N/A'}B
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">Market Cap</Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+
+                {/* Written Strategy */}
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#4a5568' }}>
+                    📝 Generated Strategy
+                  </Typography>
+                  <Box sx={{ 
+                    background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                    borderRadius: 3,
+                    p: 3,
+                    border: '1px solid #e3e8f0',
+                    fontFamily: 'monospace',
+                    whiteSpace: 'pre-wrap',
+                    fontSize: '14px',
+                    lineHeight: 1.6,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                  }}>
+                    {'writtenStrategy' in agentStrategy ? agentStrategy.writtenStrategy : agentStrategy.strategy.reasoning}
+                  </Box>
+                </Grid>
+
+                {/* TradingView Style Chart */}
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#4a5568' }}>
+                    📈 Performance Chart
+                  </Typography>
+                  <Box sx={{ 
+                    background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+                    borderRadius: 3,
+                    p: 3,
+                    height: 300,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid #e3e8f0',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                  }}>
+                    <Box sx={{ textAlign: 'center', color: '#4a5568' }}>
+                      <Typography variant="h5" sx={{ mb: 2, color: '#667eea' }}>
+                        📊 TradingView Chart
+                      </Typography>
+                      <Typography variant="body1" sx={{ mb: 2, color: '#6b7280' }}>
+                        Interactive chart showing {selectedToken?.symbol || parameters.coin} performance
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: '#9ca3af' }}>
+                        Entry: ${agentStrategy.strategy.entry.toFixed(2)} | Target: ${agentStrategy.strategy.target.toFixed(2)} | Stop: ${agentStrategy.strategy.stopLoss.toFixed(2)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+              </Grid>
+            ) : (
+              // Show Original LLM Results
+              <Box
+                sx={{
+                  background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+                  borderRadius: 3,
+                  p: 3,
+                  border: '2px solid #e3e8f0',
+                  '& pre': {
+                    margin: 0,
+                    padding: 0,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    fontFamily: '"SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace',
+                    fontSize: '0.95rem',
+                    lineHeight: 1.6,
+                    color: '#2d3748',
+                    background: 'transparent'
+                  }
+                }}
+              >
+                <pre>{llmResponse?.message}</pre>
+              </Box>
+            )}
+          </Box>
+        </Paper>
+
+        {/* Action Buttons with Enhanced Styling */}
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              justifyContent: 'center',
+              mt: 4,
+              flexWrap: 'wrap'
+            }}
+          >
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<DeployIcon />}
+              onClick={() => setShowUnderConstruction(true)}
+              sx={{
+                background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
+                borderRadius: 4,
+                px: 4,
+                py: 1.5,
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+                textTransform: 'none',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(45deg, #5a6fd8 30%, #6a4190 90%)',
+                  boxShadow: '0 8px 25px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)',
+                },
+                transition: 'all 0.3s ease'
+              }}
+            >
+              📊 Proceed to Backtest
+            </Button>
+
+            <Button
+              variant="outlined"
+              size="large"
+              onClick={() => {
+                const strategyText = agentStrategy 
+                  ? `Strategy for ${selectedToken?.symbol || parameters.coin}:\nEntry: $${agentStrategy.strategy.entry.toFixed(2)}\nTarget: $${agentStrategy.strategy.target.toFixed(2)}\nStop Loss: $${agentStrategy.strategy.stopLoss.toFixed(2)}\nPosition Size: $${agentStrategy.strategy.positionSize.toFixed(2)}\nConfidence: ${(agentStrategy.strategy.confidence * 100).toFixed(1)}%\n\nMarket Analysis:\n${'recommendations' in agentStrategy.analysis ? (agentStrategy.analysis as any).recommendations.join('\n') : agentStrategy.analysis.fundamental}`
+                  : llmResponse?.message || '';
+                navigator.clipboard.writeText(strategyText);
+                // You could add a toast notification here
+              }}
+              sx={{
+                px: 4,
+                py: 1.5,
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+                textTransform: 'none',
+                borderColor: '#667eea',
+                color: '#667eea',
+                borderRadius: 4,
+                '&:hover': {
+                  borderColor: '#5a6fd8',
+                  backgroundColor: 'rgba(102, 126, 234, 0.04)',
+                  transform: 'translateY(-2px)',
+                },
+                transition: 'all 0.3s ease'
+              }}
+            >
+              <ContentCopyIcon sx={{ mr: 1 }} />
+              Copy Strategy
+            </Button>
+
+            <Button
+              variant="outlined"
+              size="large"
+              onClick={handleRegenerateStrategy}
+              sx={{
+                px: 4,
+                py: 1.5,
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+                textTransform: 'none',
+                borderColor: '#ff9800',
+                color: '#ff9800',
+                borderRadius: 4,
+                '&:hover': {
+                  borderColor: '#f57c00',
+                  backgroundColor: 'rgba(255, 152, 0, 0.04)',
+                  transform: 'translateY(-2px)',
+                },
+                transition: 'all 0.3s ease'
+              }}
+            >
+              🔄 Regenerate Strategy
+            </Button>
+          </Box>
+        </motion.div>
+      </motion.div>
+    );
+  };
+
   const renderStepContent = (step: number) => {
     // Show agent results for all tokens on strategy generation step
     if (step === 8 && agentStrategy) {
-      return <StrategyBuilderComponent onStrategyGenerated={() => {}} selectedToken={selectedToken || undefined} />;
+      return renderStrategyResults();
     }
     switch (step) {
       case 0:
@@ -1025,13 +1500,44 @@ Focus on the most important actionable insight and keep it simple.`;
                   <InputLabel>Agent Type</InputLabel>
                   <Select
                     value={modelType}
-                    onChange={(e) => setModelType(e.target.value as 'gemma' | 'agentcore')}
+                    onChange={(e) => setModelType(e.target.value as 'codex' | 'gemma' | 'agentcore')}
                     label="Agent Type"
                   >
-                    <MenuItem value="gemma">Google Gemma (Recommended)</MenuItem>
+                    <MenuItem value="codex">OpenAI Codex (Recommended)</MenuItem>
+                    <MenuItem value="gemma">Google Gemma</MenuItem>
                     <MenuItem value="agentcore">AWS AgentCore</MenuItem>
                   </Select>
                 </FormControl>
+                
+                {/* Test Codex Button */}
+                {modelType === 'codex' && (
+                  <Box sx={{ mt: 2 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={async () => {
+                        try {
+                          console.log('🧪 Testing Codex service directly...');
+                          const testRequest = {
+                            token: 'BTC',
+                            timeframe: '1h',
+                            riskLevel: 'moderate' as 'low' | 'moderate' | 'high',
+                            investmentAmount: 1000,
+                            walletBalance: 5000
+                          };
+                          const result = await openaiCodexService.generateStrategy(testRequest);
+                          console.log('✅ Codex test successful:', result);
+                          alert('Codex test successful! Check console for details.');
+                        } catch (error) {
+                          console.error('❌ Codex test failed:', error);
+                          alert('Codex test failed! Check console for details.');
+                        }
+                      }}
+                    >
+                      Test Codex Connection
+                    </Button>
+                  </Box>
+                )}
               </CardContent>
             </Card>
 
@@ -1262,8 +1768,8 @@ Focus on the most important actionable insight and keep it simple.`;
                         </Typography>
                         <Box sx={{ mb: 2 }}>
                           <Chip 
-                            label={agentStrategy.analysis.marketTrend} 
-                            color={agentStrategy.analysis.marketTrend === 'Bullish' ? 'success' : 'error'}
+                            label={'marketTrend' in agentStrategy.analysis ? agentStrategy.analysis.marketTrend : 'Market Analysis'} 
+                            color={'marketTrend' in agentStrategy.analysis && agentStrategy.analysis.marketTrend === 'Bullish' ? 'success' : 'error'}
                             sx={{ mb: 1 }}
                           />
                         </Box>
@@ -1271,25 +1777,37 @@ Focus on the most important actionable insight and keep it simple.`;
                           <strong>Technical Signals:</strong>
                         </Typography>
                         <Box sx={{ mb: 2 }}>
-                          {agentStrategy.analysis.technicalSignals.map((signal: string, index: number) => (
-                            <Chip 
-                              key={index} 
-                              label={signal} 
-                              size="small" 
-                              variant="outlined" 
-                              sx={{ mr: 1, mb: 1 }}
-                            />
-                          ))}
+                          {'technicalSignals' in agentStrategy.analysis ? 
+                            agentStrategy.analysis.technicalSignals.map((signal: string, index: number) => (
+                              <Chip 
+                                key={index} 
+                                label={signal} 
+                                size="small" 
+                                variant="outlined" 
+                                sx={{ mr: 1, mb: 1 }}
+                              />
+                            )) : (
+                              <Typography variant="body2" color="text.secondary">
+                                {agentStrategy.analysis.technical}
+                              </Typography>
+                            )
+                          }
                         </Box>
                         <Typography variant="body2" gutterBottom>
                           <strong>Recommendations:</strong>
                         </Typography>
                         <Box>
-                          {agentStrategy.analysis.recommendations.map((rec: string, index: number) => (
-                            <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
-                              • {rec}
-                            </Typography>
-                          ))}
+                          {'recommendations' in agentStrategy.analysis ? 
+                            agentStrategy.analysis.recommendations.map((rec: string, index: number) => (
+                              <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
+                                • {rec}
+                              </Typography>
+                            )) : (
+                              <Typography variant="body2" color="text.secondary">
+                                {agentStrategy.analysis.fundamental}
+                              </Typography>
+                            )
+                          }
                         </Box>
                       </Grid>
 
@@ -1309,7 +1827,7 @@ Focus on the most important actionable insight and keep it simple.`;
                         }}>
                           <Box sx={{ textAlign: 'center' }}>
                             <Typography variant="h6" fontWeight="bold">
-                              ${agentStrategy.marketData.price.toFixed(2)}
+                              ${'marketData' in agentStrategy ? agentStrategy.marketData.price.toFixed(2) : selectedToken?.price?.toFixed(2) || 'N/A'}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">Current Price</Typography>
                           </Box>
@@ -1317,22 +1835,22 @@ Focus on the most important actionable insight and keep it simple.`;
                             <Typography 
                               variant="h6" 
                               fontWeight="bold"
-                              color={agentStrategy.marketData.price_change_percentage_24h >= 0 ? 'success.main' : 'error.main'}
+                              color={('marketData' in agentStrategy ? agentStrategy.marketData.price_change_percentage_24h : selectedToken?.priceChangePercentage24h || 0) >= 0 ? 'success.main' : 'error.main'}
                             >
-                              {agentStrategy.marketData.price_change_percentage_24h >= 0 ? '+' : ''}
-                              {agentStrategy.marketData.price_change_percentage_24h.toFixed(2)}%
+                              {('marketData' in agentStrategy ? agentStrategy.marketData.price_change_percentage_24h : selectedToken?.priceChangePercentage24h || 0) >= 0 ? '+' : ''}
+                              {('marketData' in agentStrategy ? agentStrategy.marketData.price_change_percentage_24h : selectedToken?.priceChangePercentage24h || 0).toFixed(2)}%
                             </Typography>
                             <Typography variant="body2" color="text.secondary">24h Change</Typography>
                           </Box>
                           <Box sx={{ textAlign: 'center' }}>
                             <Typography variant="h6" fontWeight="bold">
-                              ${(agentStrategy.marketData.volume_24h / 1000000).toFixed(1)}M
+                              ${'marketData' in agentStrategy ? (agentStrategy.marketData.volume_24h / 1000000).toFixed(1) : selectedToken?.volume24h ? (selectedToken.volume24h / 1000000).toFixed(1) : 'N/A'}M
                             </Typography>
                             <Typography variant="body2" color="text.secondary">24h Volume</Typography>
                           </Box>
                           <Box sx={{ textAlign: 'center' }}>
                             <Typography variant="h6" fontWeight="bold">
-                              ${(agentStrategy.marketData.market_cap / 1000000000).toFixed(1)}B
+                              ${'marketData' in agentStrategy ? (agentStrategy.marketData.market_cap / 1000000000).toFixed(1) : selectedToken?.marketCap ? (selectedToken.marketCap / 1000000000).toFixed(1) : 'N/A'}B
                             </Typography>
                             <Typography variant="body2" color="text.secondary">Market Cap</Typography>
                           </Box>
@@ -1354,7 +1872,7 @@ Focus on the most important actionable insight and keep it simple.`;
                           fontSize: '14px',
                           lineHeight: 1.6
                         }}>
-                          {agentStrategy.writtenStrategy}
+                          {'writtenStrategy' in agentStrategy ? agentStrategy.writtenStrategy : agentStrategy.strategy.reasoning}
                         </Box>
                       </Grid>
 
@@ -1457,7 +1975,7 @@ Focus on the most important actionable insight and keep it simple.`;
                   size="large"
                   onClick={() => {
                     const strategyText = agentStrategy 
-                      ? `Strategy for ${selectedToken?.symbol || parameters.coin}:\nEntry: $${agentStrategy.strategy.entry.toFixed(2)}\nTarget: $${agentStrategy.strategy.target.toFixed(2)}\nStop Loss: $${agentStrategy.strategy.stopLoss.toFixed(2)}\nPosition Size: $${agentStrategy.strategy.positionSize.toFixed(2)}\nConfidence: ${agentStrategy.strategy.confidence}%\n\nMarket Analysis:\n${agentStrategy.analysis.recommendations.join('\n')}`
+                      ? `Strategy for ${selectedToken?.symbol || parameters.coin}:\nEntry: $${agentStrategy.strategy.entry.toFixed(2)}\nTarget: $${agentStrategy.strategy.target.toFixed(2)}\nStop Loss: $${agentStrategy.strategy.stopLoss.toFixed(2)}\nPosition Size: $${agentStrategy.strategy.positionSize.toFixed(2)}\nConfidence: ${(agentStrategy.strategy.confidence * 100).toFixed(1)}%\n\nMarket Analysis:\n${'recommendations' in agentStrategy.analysis ? (agentStrategy.analysis as any).recommendations.join('\n') : agentStrategy.analysis.fundamental}`
                       : llmResponse?.message || '';
                     navigator.clipboard.writeText(strategyText);
                     // You could add a toast notification here
@@ -1678,6 +2196,25 @@ Focus on the most important actionable insight and keep it simple.`;
 
   return (
     <Container maxWidth="lg">
+      {/* API Key Test - Remove this after testing */}
+      <ApiKeyTest />
+      
+      {/* Progress Screen */}
+      <AgentProgressScreen
+        isVisible={showProgressScreen}
+        currentAgent={currentAgent}
+        progress={agentProgress}
+        message={agentMessage}
+        onRegenerate={handleRegenerateStrategy}
+      />
+      
+      {/* Under Construction Screen */}
+      <UnderConstructionScreen
+        isVisible={showUnderConstruction}
+        onClose={() => setShowUnderConstruction(false)}
+        featureName="Backtesting Feature"
+      />
+      
       {/* Backtester Modal */}
       <AnimatePresence>
         {showBacktester && (

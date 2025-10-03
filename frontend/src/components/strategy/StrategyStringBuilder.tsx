@@ -35,7 +35,7 @@ interface StrategyStringBuilderProps {
   riskManagement: any;
   instantSwap: any;
   customModifications: string;
-  modelType: 'gemma' | 'agentcore';
+  modelType: 'codex' | 'gemma' | 'agentcore';
   skippedSteps: Set<number>;
 }
 
@@ -58,6 +58,13 @@ const StrategyStringBuilder: React.FC<StrategyStringBuilderProps> = ({
 
     // Header based on agent type
     switch (modelType) {
+      case 'codex':
+        strategyString += `[CRYPTO TRADING STRATEGY GENERATION - OPENAI CODEX]
+
+You are an expert cryptocurrency trading strategist with deep knowledge of technical analysis, risk management, and market dynamics. Generate a comprehensive, actionable trading strategy based on the following inputs:
+
+`;
+        break;
       case 'gemma':
         strategyString += `[CRYPTO TRADING STRATEGY GENERATION - GOOGLE GEMMA]
 
@@ -259,6 +266,7 @@ Provide actionable, specific recommendations based on the data provided.`;
 
   const getModelColor = () => {
     switch (modelType) {
+      case 'codex': return '#00a67e';
       case 'gemma': return '#4285f4';
       case 'agentcore': return '#ff9900';
       default: return '#666';
@@ -267,6 +275,7 @@ Provide actionable, specific recommendations based on the data provided.`;
 
   const getModelIcon = () => {
     switch (modelType) {
+      case 'codex': return '🧠';
       case 'gemma': return '🤖';
       case 'agentcore': return '☁️';
       default: return '⚙️';

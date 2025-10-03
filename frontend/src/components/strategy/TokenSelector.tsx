@@ -20,6 +20,7 @@ import {
   Tab,
   Paper,
   LinearProgress,
+  CircularProgress,
   Alert,
   Tooltip,
   Divider
@@ -32,7 +33,8 @@ import {
   Chat as ChatIcon,
   Telegram as TelegramIcon,
   TrendingUp as TrendingUpIcon,
-  FilterList as FilterListIcon
+  FilterList as FilterListIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import solanaTokensService, { SolanaToken } from '../../services/solanaTokensService';
 
@@ -45,6 +47,7 @@ const TokenSelector: React.FC<TokenSelectorProps> = ({ onTokenSelect, selectedTo
   const [tokens, setTokens] = useState<SolanaToken[]>([]);
   const [filteredTokens, setFilteredTokens] = useState<SolanaToken[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -67,6 +70,18 @@ const TokenSelector: React.FC<TokenSelectorProps> = ({ onTokenSelect, selectedTo
       setError(err.message || 'Failed to load tokens');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshPrices = async () => {
+    try {
+      setRefreshing(true);
+      const updatedTokens = await solanaTokensService.refreshAllPrices();
+      setTokens(updatedTokens);
+    } catch (err: any) {
+      setError(err.message || 'Failed to refresh prices');
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -109,6 +124,19 @@ const TokenSelector: React.FC<TokenSelectorProps> = ({ onTokenSelect, selectedTo
       return `$${price.toFixed(4)}`;
     }
     return `$${price.toFixed(2)}`;
+  };
+
+  const formatPriceChange = (change: number | null | undefined) => {
+    if (change === null || change === undefined || isNaN(change)) return 'N/A';
+    const sign = change >= 0 ? '+' : '';
+    return `${sign}${change.toFixed(2)}%`;
+  };
+
+  const getPriceChangeColor = (change: number | null | undefined) => {
+    if (change === null || change === undefined) return '#757575'; // Gray for N/A
+    if (change > 0) return '#4caf50'; // Green
+    if (change < 0) return '#f44336'; // Red
+    return '#757575'; // Gray
   };
 
   const getCategoryColor = (category: string) => {
@@ -163,11 +191,23 @@ const TokenSelector: React.FC<TokenSelectorProps> = ({ onTokenSelect, selectedTo
   return (
     <Card sx={{ mb: 3 }}>
       <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-          <TrendingUpIcon color="primary" />
-          <Typography variant="h6">
-            Choose Wisely
-          </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <TrendingUpIcon color="primary" />
+            <Typography variant="h6">
+              Choose Wisely
+            </Typography>
+          </Box>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={refreshing ? <CircularProgress size={16} /> : <RefreshIcon />}
+            onClick={refreshPrices}
+            disabled={refreshing}
+            sx={{ minWidth: 120 }}
+          >
+            {refreshing ? 'Refreshing...' : 'Refresh Prices'}
+          </Button>
         </Box>
 
         {/* Search and Filter */}
@@ -217,11 +257,18 @@ const TokenSelector: React.FC<TokenSelectorProps> = ({ onTokenSelect, selectedTo
           </Paper>
         </Box>
 
-        {/* Token Count */}
+        {/* Token Count and Last Updated */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            {filteredTokens.length} tokens found
-          </Typography>
+          <Box>
+            <Typography variant="body2" color="text.secondary">
+              {filteredTokens.length} tokens found
+            </Typography>
+            {tokens.length > 0 && tokens[0].lastUpdated && (
+              <Typography variant="caption" color="text.secondary">
+                Last updated: {new Date(tokens[0].lastUpdated).toLocaleTimeString()}
+              </Typography>
+            )}
+          </Box>
           <Chip 
             icon={<FilterListIcon />} 
             label={`Filtered by: ${selectedCategory}`} 
@@ -315,10 +362,21 @@ const TokenSelector: React.FC<TokenSelectorProps> = ({ onTokenSelect, selectedTo
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                           {token.description}
                         </Typography>
-                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
                           {token.price && (
                             <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
                               Price: {formatPrice(token.price)}
+                            </Typography>
+                          )}
+                          {token.priceChangePercentage24h !== undefined && token.priceChangePercentage24h !== null && (
+                            <Typography 
+                              variant="caption" 
+                              sx={{ 
+                                fontWeight: 'bold',
+                                color: getPriceChangeColor(token.priceChangePercentage24h)
+                              }}
+                            >
+                              {formatPriceChange(token.priceChangePercentage24h)}
                             </Typography>
                           )}
                           {token.marketCap && (
