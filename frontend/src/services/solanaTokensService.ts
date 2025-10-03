@@ -1,3 +1,5 @@
+import realTimePriceService, { TokenPriceData } from './realTimePriceService';
+
 export interface SolanaToken {
   symbol: string;
   name: string;
@@ -6,6 +8,11 @@ export interface SolanaToken {
   marketCap?: number;
   price?: number;
   volume24h?: number;
+  priceChange24h?: number;
+  priceChangePercentage24h?: number;
+  high24h?: number;
+  low24h?: number;
+  lastUpdated?: string;
   website?: string;
   whitepaper?: string;
   twitter?: string;
@@ -289,9 +296,44 @@ class SolanaTokensService {
 
   // Get all tokens
   async getAllTokens(): Promise<SolanaToken[]> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return this.tokens;
+    try {
+      // Get all token symbols
+      const symbols = this.tokens.map(token => token.symbol);
+      
+      // Fetch real-time prices for all tokens
+      const priceData = await realTimePriceService.getMultipleTokenPrices(symbols);
+      
+      // Create a map of symbol to price data for quick lookup
+      const priceMap = new Map<string, TokenPriceData>();
+      priceData.forEach(data => {
+        priceMap.set(data.symbol, data);
+      });
+      
+      // Update tokens with real-time price data
+      const updatedTokens = this.tokens.map(token => {
+        const priceInfo = priceMap.get(token.symbol);
+        if (priceInfo) {
+          return {
+            ...token,
+            price: priceInfo.price || token.price,
+            marketCap: priceInfo.marketCap || token.marketCap,
+            volume24h: priceInfo.volume24h || token.volume24h,
+            priceChange24h: priceInfo.priceChange24h || 0,
+            priceChangePercentage24h: priceInfo.priceChangePercentage24h || 0,
+            high24h: priceInfo.high24h || token.high24h,
+            low24h: priceInfo.low24h || token.low24h,
+            lastUpdated: priceInfo.lastUpdated || new Date().toISOString()
+          };
+        }
+        return token; // Return original token if no price data available
+      });
+      
+      return updatedTokens;
+    } catch (error) {
+      console.error('Error fetching real-time prices:', error);
+      // Return tokens with original data if price fetch fails
+      return this.tokens;
+    }
   }
 
   // Get tokens by category
@@ -313,8 +355,29 @@ class SolanaTokensService {
 
   // Get token by symbol
   async getTokenBySymbol(symbol: string): Promise<SolanaToken | null> {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return this.tokens.find(token => token.symbol.toLowerCase() === symbol.toLowerCase()) || null;
+    try {
+      const token = this.tokens.find(token => token.symbol.toLowerCase() === symbol.toLowerCase());
+      if (!token) return null;
+      
+      // Fetch real-time price for this specific token
+      const priceData = await realTimePriceService.getTokenPrice(symbol);
+      
+      return {
+        ...token,
+        price: priceData.price || token.price,
+        marketCap: priceData.marketCap || token.marketCap,
+        volume24h: priceData.volume24h || token.volume24h,
+        priceChange24h: priceData.priceChange24h || 0,
+        priceChangePercentage24h: priceData.priceChangePercentage24h || 0,
+        high24h: priceData.high24h || token.high24h,
+        low24h: priceData.low24h || token.low24h,
+        lastUpdated: priceData.lastUpdated || new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error fetching real-time price for token:', symbol, error);
+      // Return original token if price fetch fails
+      return this.tokens.find(token => token.symbol.toLowerCase() === symbol.toLowerCase()) || null;
+    }
   }
 
   // Get trending tokens (mock implementation)
@@ -330,6 +393,16 @@ class SolanaTokensService {
   // Get categories
   getCategories(): SolanaToken['category'][] {
     return ['DeFi', 'NFT', 'Gaming', 'Infrastructure', 'Meme', 'Other'];
+  }
+
+  // Refresh all prices
+  async refreshAllPrices(): Promise<SolanaToken[]> {
+    return this.getAllTokens();
+  }
+
+  // Get real-time price for a specific token
+  async getRealTimePrice(symbol: string): Promise<TokenPriceData> {
+    return realTimePriceService.getTokenPrice(symbol);
   }
 }
 
