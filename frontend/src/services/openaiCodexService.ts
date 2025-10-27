@@ -52,7 +52,7 @@ export interface CodexStrategyResponse {
 class OpenAICodexService {
   private apiKey: string;
   private baseUrl: string = 'https://api.openai.com/v1';
-  private model: string = 'gpt-3.5-turbo'; // Using GPT-3.5-turbo as Codex alternative
+  private model: string = 'gpt-4'; // Using GPT-4 as Codex alternative
 
   constructor() {
     // Try environment variable first, then fallback to hardcoded key
@@ -103,7 +103,7 @@ class OpenAICodexService {
               content: prompt
             }
           ],
-          max_tokens: 3000,
+          max_tokens: 6000,
           temperature: 0.7,
           top_p: 1,
           frequency_penalty: 0,
@@ -162,7 +162,7 @@ class OpenAICodexService {
   private buildStrategyPrompt(request: CodexStrategyRequest): string {
     return `# CRYPTO TRADING STRATEGY GENERATION - OPENAI CODEX
 
-You are an expert cryptocurrency trading strategist with deep knowledge of technical analysis, risk management, and market dynamics. Generate a comprehensive, actionable trading strategy based on the following inputs:
+You are a world-class institutional cryptocurrency trading strategist with 15+ years of experience in quantitative finance, algorithmic trading, and blockchain technology. You have worked at top-tier hedge funds, proprietary trading firms, and cryptocurrency exchanges. Generate an extremely comprehensive, institutional-grade trading strategy that rivals the quality of Goldman Sachs or BlackRock research reports.
 
 ## TRADING PARAMETERS
 - **Token**: ${request.token}
@@ -196,34 +196,37 @@ ${request.sentimentData ? `
 
 ## REQUIRED OUTPUT FORMAT
 
-Please provide a comprehensive trading strategy in the following JSON format:
+Provide an extremely detailed, institutional-grade trading strategy in the following JSON format. Each section must be comprehensive and educational:
 
 \`\`\`json
 {
   "strategy": {
-    "entry": [number - precise entry price with technical justification],
-    "target": [number - realistic target price with upside potential analysis],
-    "stopLoss": [number - calculated stop loss with risk management rationale],
-    "positionSize": [number - position size in USD based on risk parameters],
-    "confidence": [number - confidence level 0-1 with supporting factors],
-    "reasoning": "[string - comprehensive 500+ word reasoning covering technical analysis, fundamental factors, risk assessment, market conditions, and strategic rationale]"
+    "entry": [number - precise entry price with detailed technical justification],
+    "target": [number - realistic target price with comprehensive upside potential analysis],
+    "stopLoss": [number - calculated stop loss with thorough risk management rationale],
+    "positionSize": [number - position size in USD based on detailed risk parameters],
+    "confidence": [number - confidence level 0-1 with supporting factors and probability analysis],
+    "reasoning": "[string - EXTREMELY comprehensive 1000+ word reasoning covering: detailed technical analysis with specific indicators and levels, fundamental analysis with token utility and adoption metrics, comprehensive risk assessment with correlation analysis, market conditions with macroeconomic factors, strategic rationale with multiple scenario planning, quantitative analysis with risk-reward ratios, timing considerations with market microstructure analysis, and institutional-grade insights]"
   },
   "analysis": {
-    "technical": "[string - detailed technical analysis including specific indicators, support/resistance levels, chart patterns, momentum analysis, and quantitative metrics]",
-    "fundamental": "[string - comprehensive fundamental analysis covering token utility, adoption trends, competitive landscape, regulatory environment, and long-term viability]",
-    "risk": "[string - thorough risk assessment including market risks, token-specific risks, liquidity considerations, correlation analysis, and mitigation strategies]",
-    "market": "[string - current market conditions analysis including trends, sentiment, macroeconomic factors, sector rotation, and institutional activity]"
+    "technical": "[string - EXTREMELY detailed technical analysis including: specific RSI, MACD, Bollinger Bands, Fibonacci levels, support/resistance analysis with exact price levels, chart pattern recognition with specific formations, momentum analysis with volume confirmation, trend analysis with multiple timeframe confirmation, volatility analysis with historical comparisons, volume profile analysis, order flow analysis, institutional activity indicators, and quantitative technical metrics with specific calculations]",
+    "fundamental": "[string - COMPREHENSIVE fundamental analysis covering: detailed token utility analysis with use cases and adoption metrics, competitive landscape analysis with direct competitors and market positioning, regulatory environment analysis with current and potential future regulations, team and development analysis with roadmap assessment, ecosystem analysis with partnerships and integrations, tokenomics analysis with supply/demand dynamics, market adoption metrics with user growth and transaction volume, institutional adoption analysis with corporate partnerships, technological innovation assessment with unique features, long-term viability analysis with sustainability factors, and macroeconomic impact analysis]",
+    "risk": "[string - THOROUGH risk assessment including: detailed market risk analysis with volatility and correlation factors, token-specific risks with technical and fundamental vulnerabilities, liquidity risk analysis with depth and spread considerations, regulatory risk assessment with compliance requirements, counterparty risk analysis with exchange and custody considerations, operational risk factors with technical and security concerns, concentration risk analysis with portfolio allocation, tail risk assessment with extreme scenario planning, correlation risk analysis with other assets and sectors, timing risk factors with market cycle considerations, and comprehensive mitigation strategies with specific hedging techniques]",
+    "market": "[string - COMPREHENSIVE market conditions analysis including: detailed trend analysis with multiple timeframe confirmation, sentiment analysis with social media and news impact, macroeconomic factors with interest rates and inflation impact, sector rotation analysis with crypto market cycles, institutional activity analysis with corporate and fund participation, regulatory developments with policy impact assessment, technological developments with innovation impact, market microstructure analysis with order flow and liquidity, volatility analysis with historical comparisons, correlation analysis with traditional markets, geopolitical factors with global impact assessment, and market cycle positioning with timing considerations]"
   },
   "recommendations": [
-    "[string - specific, actionable recommendation 1 with clear implementation steps]",
-    "[string - specific, actionable recommendation 2 with timing considerations]",
-    "[string - specific, actionable recommendation 3 with risk management focus]",
-    "[string - specific, actionable recommendation 4 with exit strategy]"
+    "[string - SPECIFIC, actionable recommendation 1 with detailed implementation steps, exact timing, specific price levels, and risk management protocols]",
+    "[string - SPECIFIC, actionable recommendation 2 with timing considerations, market conditions, and execution guidelines]",
+    "[string - SPECIFIC, actionable recommendation 3 with risk management focus, position sizing guidelines, and monitoring requirements]",
+    "[string - SPECIFIC, actionable recommendation 4 with exit strategy, profit-taking levels, and stop-loss management]",
+    "[string - SPECIFIC, actionable recommendation 5 with portfolio management, diversification strategies, and rebalancing guidelines]"
   ],
   "warnings": [
-    "[string - critical warning 1 about potential risks]",
-    "[string - critical warning 2 about market conditions]",
-    "[string - critical warning 3 about position management]"
+    "[string - CRITICAL warning 1 about specific potential risks with detailed explanation and mitigation strategies]",
+    "[string - CRITICAL warning 2 about market conditions with specific scenarios and impact assessment]",
+    "[string - CRITICAL warning 3 about position management with specific guidelines and monitoring requirements]",
+    "[string - CRITICAL warning 4 about regulatory considerations with compliance requirements and potential changes]",
+    "[string - CRITICAL warning 5 about technical risks with specific vulnerabilities and protection measures]"
   ],
   "metadata": {
     "model": "codex",
@@ -233,25 +236,45 @@ Please provide a comprehensive trading strategy in the following JSON format:
 }
 \`\`\`
 
-## INSTRUCTIONS
-1. **COMPREHENSIVE ANALYSIS**: Provide detailed, institutional-grade analysis covering all aspects of the trade
-2. **TECHNICAL DEPTH**: Include specific technical indicators, support/resistance levels, chart patterns, and momentum analysis
-3. **FUNDAMENTAL INSIGHTS**: Analyze token utility, adoption trends, competitive landscape, and long-term viability
-4. **RISK MANAGEMENT**: Provide thorough risk assessment with specific mitigation strategies and position sizing rationale
-5. **MARKET CONTEXT**: Consider broader market conditions, sector trends, and macroeconomic factors
-6. **DETAILED REASONING**: Explain every decision with specific data points and logical reasoning (minimum 500 words)
-7. **ACTIONABLE RECOMMENDATIONS**: Provide specific, implementable trading recommendations with clear entry/exit criteria
-8. **RISK WARNINGS**: Include comprehensive warnings about potential risks and market uncertainties
-9. **PROFESSIONAL STANDARDS**: Use institutional trading terminology and maintain professional analysis quality
-10. **VERBOSE OUTPUT**: Provide extensive detail in all analysis sections - aim for comprehensive, educational content
-11. **QUANTITATIVE ANALYSIS**: Include specific price targets, risk-reward ratios, and probability assessments
-12. **MULTIPLE SCENARIOS**: Consider bullish, bearish, and sideways market scenarios with corresponding strategies
-13. **MARKET MICROSTRUCTURE**: Analyze order flow, liquidity conditions, and institutional activity
-14. **CORRELATION ANALYSIS**: Consider correlations with other assets, sectors, and market indices
-15. **TIMING PRECISION**: Provide specific timing recommendations for entry, scaling, and exit strategies
-8. Ensure all numbers are realistic and based on current market conditions
+## DETAILED INSTRUCTIONS - INSTITUTIONAL GRADE ANALYSIS REQUIRED
 
-Generate a professional, well-reasoned trading strategy that a trader can immediately implement.`;
+1. **COMPREHENSIVE ANALYSIS**: Provide extremely detailed, institutional-grade analysis that rivals top-tier investment bank research reports. Every section must be thorough and educational.
+
+2. **TECHNICAL DEPTH**: Include specific technical indicators with exact calculations, support/resistance levels with precise price points, chart patterns with specific formations, momentum analysis with volume confirmation, trend analysis with multiple timeframe confirmation, volatility analysis with historical comparisons, and quantitative technical metrics.
+
+3. **FUNDAMENTAL INSIGHTS**: Analyze token utility with detailed use cases, adoption trends with specific metrics, competitive landscape with direct comparisons, regulatory environment with current and future considerations, team and development with roadmap assessment, ecosystem analysis with partnerships, tokenomics with supply/demand dynamics, and long-term viability with sustainability factors.
+
+4. **RISK MANAGEMENT**: Provide thorough risk assessment with specific mitigation strategies, position sizing rationale with detailed calculations, correlation analysis with other assets, tail risk assessment with extreme scenarios, and comprehensive hedging strategies.
+
+5. **MARKET CONTEXT**: Consider broader market conditions with macroeconomic factors, sector trends with crypto market cycles, institutional activity with corporate participation, regulatory developments with policy impact, and market cycle positioning with timing considerations.
+
+6. **DETAILED REASONING**: Explain every decision with specific data points, logical reasoning, and institutional-grade insights. Minimum 1000 words with comprehensive coverage of all aspects.
+
+7. **ACTIONABLE RECOMMENDATIONS**: Provide specific, implementable trading recommendations with clear entry/exit criteria, exact timing, specific price levels, and detailed execution guidelines.
+
+8. **RISK WARNINGS**: Include comprehensive warnings about potential risks with specific scenarios, impact assessment, and detailed mitigation strategies.
+
+9. **PROFESSIONAL STANDARDS**: Use institutional trading terminology, maintain professional analysis quality, and provide insights that would be valuable to professional traders and institutional investors.
+
+10. **VERBOSE OUTPUT**: Provide extensive detail in all analysis sections. Aim for comprehensive, educational content that teaches while providing actionable insights.
+
+11. **QUANTITATIVE ANALYSIS**: Include specific price targets with calculations, risk-reward ratios with detailed analysis, probability assessments with statistical backing, and quantitative metrics throughout.
+
+12. **MULTIPLE SCENARIOS**: Consider bullish, bearish, and sideways market scenarios with corresponding strategies, specific price levels, and detailed execution plans for each scenario.
+
+13. **MARKET MICROSTRUCTURE**: Analyze order flow with depth analysis, liquidity conditions with spread considerations, institutional activity with participation metrics, and market dynamics with real-time factors.
+
+14. **CORRELATION ANALYSIS**: Consider correlations with other assets, sectors, market indices, traditional markets, and global economic factors with detailed impact assessment.
+
+15. **TIMING PRECISION**: Provide specific timing recommendations for entry, scaling, profit-taking, and exit strategies with market condition considerations and execution guidelines.
+
+16. **INSTITUTIONAL INSIGHTS**: Provide insights that would be valuable to professional traders, institutional investors, and quantitative analysts with detailed explanations and professional terminology.
+
+17. **EDUCATIONAL VALUE**: Make the analysis educational and informative, teaching readers about advanced trading concepts while providing actionable insights.
+
+18. **COMPREHENSIVE COVERAGE**: Cover every aspect of the trade from technical analysis to fundamental factors, risk management to market conditions, with detailed explanations and professional insights.
+
+Generate a professional, extremely detailed, institutional-grade trading strategy that rivals the quality of top-tier investment bank research reports. The analysis must be comprehensive, educational, and immediately actionable for professional traders.`;
   }
 
   private parseStrategyResponse(response: string, request: CodexStrategyRequest): CodexStrategyResponse {
@@ -319,7 +342,7 @@ Return ONLY valid JSON in this exact format:
       const response = await axios.post(
         'https://api.openai.com/v1/chat/completions',
         {
-          model: 'gpt-3.5-turbo',
+          model: 'gpt-4',
           messages: [
             {
               role: 'system',
@@ -330,7 +353,7 @@ Return ONLY valid JSON in this exact format:
               content: simplePrompt
             }
           ],
-          max_tokens: 2000,
+          max_tokens: 4000,
           temperature: 0.7,
           top_p: 1,
           frequency_penalty: 0,

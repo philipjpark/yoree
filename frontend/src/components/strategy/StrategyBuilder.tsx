@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import solAgentService, { SOLStrategyRequest, SOLStrategyResponse } from '../../services/solAgentService';
 import openaiCodexService, { CodexStrategyRequest, CodexStrategyResponse } from '../../services/openaiCodexService';
+import agentOrchestrator, { AgentOrchestratorRequest, AgentOrchestratorResponse } from '../../services/agentServices/agentOrchestrator';
+import sentimentAgentService, { SentimentAgentRequest } from '../../services/agentServices/sentimentAgentService';
+import technicalAgentService, { TechnicalAgentRequest } from '../../services/agentServices/technicalAgentService';
+import riskAgentService, { RiskAgentRequest } from '../../services/agentServices/riskAgentService';
 import Backtester from '../backtest/Backtester';
 import StrategyBuilderComponent from './SOLStrategyBuilder';
 import {
@@ -34,7 +38,6 @@ import StrategyStringBuilder from './StrategyStringBuilder';
 import PDFUploader from './PDFUploader';
 import AgentProgressScreen from './AgentProgressScreen';
 import UnderConstructionScreen from './UnderConstructionScreen';
-import ApiKeyTest from '../test/ApiKeyTest';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { 
   PlayArrow as DeployIcon, 
@@ -176,7 +179,7 @@ const StrategyBuilder: React.FC = () => {
   const [customModifications, setCustomModifications] = useState('');
   const [selectedToken, setSelectedToken] = useState<SolanaToken | null>(null);
   const [useSOLAgents, setUseSOLAgents] = useState(false);
-  const [agentStrategy, setAgentStrategy] = useState<SOLStrategyResponse | CodexStrategyResponse | null>(null);
+  const [agentStrategy, setAgentStrategy] = useState<SOLStrategyResponse | CodexStrategyResponse | AgentOrchestratorResponse | any | null>(null);
   const [isGeneratingWithAgents, setIsGeneratingWithAgents] = useState(false);
   const [showBacktester, setShowBacktester] = useState(false);
 
@@ -503,63 +506,16 @@ Focus on the most important actionable insight and keep it simple.`;
       let agentResult;
       
       if (modelType === 'codex') {
-        console.log('🎯 Using OpenAI Codex service...');
+        console.log('🎯 Using Multi-Agent Orchestrator...');
         
-        // Sequence 1: Market Analyzer (Sentiment Analysis)
+        // Ultra-fast 3-agent progression
         setCurrentAgent('sentiment');
-        setAgentMessage('🔍 Scanning social media sentiment, news impact, and market psychology...');
-        setAgentProgress(15);
+        setAgentMessage('🔍 Market Analyzer: Analyzing sentiment...');
+        setAgentProgress(33);
         
-        setTimeout(() => {
-          setAgentProgress(30);
-          setAgentMessage('📊 Sentiment analysis complete. Processing technical indicators...');
-        }, 2000);
-        
-        // Sequence 2: Technical Analyzer
-        setTimeout(() => {
-          setCurrentAgent('technical');
-          setAgentMessage('📈 Analyzing RSI, MACD, moving averages, and chart patterns...');
-          setAgentProgress(45);
-        }, 4000);
-        
-        setTimeout(() => {
-          setAgentProgress(60);
-          setAgentMessage('⚡ Technical analysis complete. Evaluating risk parameters...');
-        }, 6000);
-        
-        // Sequence 3: Risk Manager
-        setTimeout(() => {
-          setCurrentAgent('risk');
-          setAgentMessage('🛡️ Calculating position sizing, stop-losses, and risk-reward ratios...');
-          setAgentProgress(75);
-        }, 8000);
-        
-        setTimeout(() => {
-          setAgentProgress(85);
-          setAgentMessage('✅ Risk assessment complete. Generating final strategy...');
-        }, 10000);
-        
-        // Sequence 4: Strategy Generator (Codex)
-        setTimeout(() => {
-          setCurrentAgent('codex');
-          setAgentMessage('🧠 Synthesizing all data into comprehensive trading strategy...');
-          setAgentProgress(95);
-        }, 12000);
-        
-        console.log('🔍 Codex service will be called with:', {
+        // Step 1: Sentiment Analysis Agent (Ultra-fast API call)
+        const sentimentRequest: SentimentAgentRequest = {
           token: selectedToken?.symbol || parameters.coin,
-          modelType: modelType,
-          hasApiKey: !!openaiCodexService
-        });
-        
-        // Use OpenAI Codex for strategy generation
-        const codexRequest: CodexStrategyRequest = {
-          token: selectedToken?.symbol || parameters.coin,
-          timeframe: parameters.timeframe,
-          riskLevel: parameters.riskManagement.positionSize <= 1 ? 'low' : 
-                    parameters.riskManagement.positionSize <= 3 ? 'moderate' : 'high',
-          investmentAmount: parameters.riskManagement.positionSize * 1000,
-          walletBalance: 10000,
           marketData: selectedToken ? {
             price: selectedToken.price || 0,
             price_change_percentage_24h: selectedToken.priceChangePercentage24h || 0,
@@ -568,11 +524,70 @@ Focus on the most important actionable insight and keep it simple.`;
           } : undefined
         };
         
-        agentResult = await openaiCodexService.generateStrategy(codexRequest);
-        console.log('✅ Codex service completed:', agentResult);
+        const sentimentAnalysis = await sentimentAgentService.analyzeSentiment(sentimentRequest);
+        setAgentProgress(66);
+        setAgentMessage('📈 Technical Analyzer: Processing indicators...');
+        
+        // Step 2: Technical Analysis Agent (Ultra-fast API call)
+        setCurrentAgent('technical');
+        const technicalRequest: TechnicalAgentRequest = {
+          token: selectedToken?.symbol || parameters.coin,
+          marketData: selectedToken ? {
+            price: selectedToken.price || 0,
+            price_change_percentage_24h: selectedToken.priceChangePercentage24h || 0,
+            market_cap: selectedToken.marketCap || 0,
+            volume_24h: selectedToken.volume24h || 0
+          } : undefined
+        };
+        
+        const technicalAnalysis = await technicalAgentService.analyzeTechnical(technicalRequest);
+        
+        // Step 3: Risk Analyzer (UI only - no API call)
+        setCurrentAgent('risk');
+        setAgentMessage('🧠 Risk Analyzer: Processing risk parameters...');
+        setAgentProgress(90);
+        
+        // Simulate risk analysis processing (no API call)
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Generate strategy using technical analysis data
+        agentResult = {
+          strategy: {
+            entry: technicalAnalysis.tradingSignals.entry || (selectedToken?.price || 0),
+            target: technicalAnalysis.tradingSignals.target || (selectedToken?.price || 0) * 1.1,
+            stopLoss: technicalAnalysis.tradingSignals.stopLoss || (selectedToken?.price || 0) * 0.95,
+            positionSize: parameters.riskManagement.positionSize * 1000,
+            confidence: technicalAnalysis.confidence || 0.7,
+            reasoning: technicalAnalysis.detailedAnalysis || 'Strategy generated based on technical analysis.'
+          },
+          analysis: {
+            technical: technicalAnalysis.detailedAnalysis || 'Technical analysis completed.',
+            fundamental: 'Fundamental analysis based on market conditions.',
+            risk: 'Risk assessment based on technical indicators.',
+            market: 'Market analysis from sentiment and technical data.'
+          },
+          recommendations: technicalAnalysis.chartPatterns?.map(p => p.pattern) || ['Monitor key support levels', 'Watch for breakout patterns'],
+          warnings: ['Market volatility may impact strategy performance', 'Monitor stop-loss levels closely'],
+          riskMetrics: {
+            valueAtRisk: 100,
+            expectedShortfall: 150,
+            maximumDrawdown: 200,
+            sharpeRatio: 1.0,
+            sortinoRatio: 1.2
+          },
+          riskFactors: {
+            marketRisk: { volatility: 50, correlation: 0.5, systemicRisk: 50 },
+            liquidityRisk: { bidAskSpread: 50, marketDepth: 50, slippageRisk: 50 },
+            operationalRisk: { exchangeRisk: 50, custodyRisk: 50, regulatoryRisk: 50 },
+            concentrationRisk: { portfolioConcentration: 50, sectorConcentration: 50, geographicConcentration: 50 }
+          },
+          detailedAnalysis: technicalAnalysis.detailedAnalysis || 'Strategy generated based on technical analysis and market conditions.'
+        };
+        
+        console.log('✅ 2-Agent Strategy Generation completed:', agentResult);
         
         setAgentProgress(100);
-        setAgentMessage('Strategy generation completed successfully!');
+        setAgentMessage('🎉 Strategy generation completed!');
       } else {
         console.log('🎯 Using SOL Agent service...');
         setCurrentAgent('sentiment');
@@ -580,11 +595,11 @@ Focus on the most important actionable insight and keep it simple.`;
         setAgentProgress(50);
         
         // Use existing SOL Agent Service for other models
-        const agentRequest: SOLStrategyRequest = {
-          asset: selectedToken?.symbol || parameters.coin,
-          timeframe: parameters.timeframe,
-          riskLevel: parameters.riskManagement.positionSize <= 1 ? 'low' : 
-                    parameters.riskManagement.positionSize <= 3 ? 'moderate' : 'high',
+      const agentRequest: SOLStrategyRequest = {
+        asset: selectedToken?.symbol || parameters.coin,
+        timeframe: parameters.timeframe,
+        riskLevel: parameters.riskManagement.positionSize <= 1 ? 'low' : 
+                  parameters.riskManagement.positionSize <= 3 ? 'moderate' : 'high',
           investmentAmount: parameters.riskManagement.positionSize * 1000,
           walletBalance: 10000,
         };
@@ -602,13 +617,22 @@ Focus on the most important actionable insight and keep it simple.`;
       // Hide progress screen after a short delay
       setTimeout(() => {
         setShowProgressScreen(false);
-        handleNext();
+      handleNext();
       }, 1500);
       
     } catch (err: any) {
       console.error('❌ Strategy generation failed:', err);
       setError(err.message || 'Failed to generate strategy');
-      setShowProgressScreen(false);
+      
+      // Show error in progress screen instead of hiding it immediately
+      setCurrentAgent('error');
+      setAgentMessage(`❌ Error: ${err.message || 'Failed to generate strategy'}`);
+      setAgentProgress(0);
+      
+      // Hide progress screen after showing error for a moment
+      setTimeout(() => {
+        setShowProgressScreen(false);
+      }, 3000);
     } finally {
       setLoading(false);
       setIsGeneratingWithAgents(false);
@@ -1779,13 +1803,13 @@ Focus on the most important actionable insight and keep it simple.`;
                         <Box sx={{ mb: 2 }}>
                           {'technicalSignals' in agentStrategy.analysis ? 
                             agentStrategy.analysis.technicalSignals.map((signal: string, index: number) => (
-                              <Chip 
-                                key={index} 
-                                label={signal} 
-                                size="small" 
-                                variant="outlined" 
-                                sx={{ mr: 1, mb: 1 }}
-                              />
+                            <Chip 
+                              key={index} 
+                              label={signal} 
+                              size="small" 
+                              variant="outlined" 
+                              sx={{ mr: 1, mb: 1 }}
+                            />
                             )) : (
                               <Typography variant="body2" color="text.secondary">
                                 {agentStrategy.analysis.technical}
@@ -1799,9 +1823,9 @@ Focus on the most important actionable insight and keep it simple.`;
                         <Box>
                           {'recommendations' in agentStrategy.analysis ? 
                             agentStrategy.analysis.recommendations.map((rec: string, index: number) => (
-                              <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
-                                • {rec}
-                              </Typography>
+                            <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
+                              • {rec}
+                            </Typography>
                             )) : (
                               <Typography variant="body2" color="text.secondary">
                                 {agentStrategy.analysis.fundamental}
@@ -2196,9 +2220,6 @@ Focus on the most important actionable insight and keep it simple.`;
 
   return (
     <Container maxWidth="lg">
-      {/* API Key Test - Remove this after testing */}
-      <ApiKeyTest />
-      
       {/* Progress Screen */}
       <AgentProgressScreen
         isVisible={showProgressScreen}

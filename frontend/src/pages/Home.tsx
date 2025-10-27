@@ -200,7 +200,7 @@ const Home: React.FC = () => {
                       letterSpacing: '-0.02em'
                     }}
                   >
-                    YOREE
+                    YOREE (요리)
                   </Typography>
                   
                   <Typography 
