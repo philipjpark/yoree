@@ -48,12 +48,21 @@ const AgentProgressScreen: React.FC<AgentProgressScreenProps> = ({
   onRegenerate
 }) => {
   const getAgentStatus = (agentId: string) => {
+    // Handle error state
+    if (currentAgent === 'error') {
+      return 'error';
+    }
+    
     if (currentAgent === agentId) {
+      // Risk analyzer only shows completed when strategy is fully ready
+      if (agentId === 'risk') {
+        return progress === 100 ? 'completed' : 'running';
+      }
       return progress === 100 ? 'completed' : 'running';
     }
     
     // Determine if this agent should be completed based on overall progress
-    const agentOrder = ['sentiment', 'technical', 'risk', 'codex'];
+    const agentOrder = ['sentiment', 'technical', 'risk'];
     const currentIndex = agentOrder.indexOf(currentAgent);
     const agentIndex = agentOrder.indexOf(agentId);
     
@@ -71,7 +80,7 @@ const AgentProgressScreen: React.FC<AgentProgressScreenProps> = ({
       return progress;
     }
     
-    const agentOrder = ['sentiment', 'technical', 'risk', 'codex'];
+    const agentOrder = ['sentiment', 'technical', 'risk'];
     const currentIndex = agentOrder.indexOf(currentAgent);
     const agentIndex = agentOrder.indexOf(agentId);
     
@@ -89,7 +98,7 @@ const AgentProgressScreen: React.FC<AgentProgressScreenProps> = ({
       return message;
     }
     
-    const agentOrder = ['sentiment', 'technical', 'risk', 'codex'];
+    const agentOrder = ['sentiment', 'technical', 'risk'];
     const currentIndex = agentOrder.indexOf(currentAgent);
     const agentIndex = agentOrder.indexOf(agentId);
     
@@ -125,21 +134,11 @@ const AgentProgressScreen: React.FC<AgentProgressScreenProps> = ({
     },
     {
       id: 'risk',
-      name: 'Risk Manager',
-      description: 'Calculating position sizing, stop-losses, and risk-reward ratios',
+      name: 'Risk Analyzer',
+      description: 'Processing risk parameters and finalizing strategy',
       status: getAgentStatus('risk'),
       progress: getAgentProgress('risk'),
       message: getAgentMessage('risk'),
-      icon: <SecurityIcon />,
-      color: '#ff9800'
-    },
-    {
-      id: 'codex',
-      name: 'Strategy Generator',
-      description: 'Synthesizing all data into comprehensive trading strategy',
-      status: getAgentStatus('codex'),
-      progress: getAgentProgress('codex'),
-      message: getAgentMessage('codex'),
       icon: <BrainIcon />,
       color: '#667eea'
     }
@@ -176,21 +175,45 @@ const AgentProgressScreen: React.FC<AgentProgressScreenProps> = ({
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        transition={{ duration: 0.5 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(8px)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}
       >
-        <Paper
-          elevation={8}
-          sx={{
-            background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-            borderRadius: 4,
-            p: 4,
-            border: '2px solid #dee2e6',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
-          }}
+        <motion.div
+          initial={{ scale: 0.8, y: 20 }}
+          animate={{ scale: 1, y: 0 }}
+          exit={{ scale: 0.8, y: 20 }}
+          transition={{ duration: 0.3 }}
         >
+          <Paper
+            elevation={24}
+            sx={{
+              background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+              borderRadius: 4,
+              p: 4,
+              border: '2px solid #dee2e6',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.25)',
+              maxWidth: '800px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
           {/* Header */}
           <Box sx={{ textAlign: 'center', mb: 4 }}>
             <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 2, color: '#2d3748' }}>
@@ -200,37 +223,15 @@ const AgentProgressScreen: React.FC<AgentProgressScreenProps> = ({
               Our specialized AI agents are collaborating to analyze market data and generate your personalized trading strategy
             </Typography>
             <Typography variant="body2" sx={{ color: '#6b7280', fontStyle: 'italic' }}>
-              Market Analyzer • Technical Analyzer • Risk Manager • Strategy Generator
+              Market Analyzer • Technical Analyzer • Risk Analyzer
             </Typography>
             
-            {/* Overall Progress */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="h6" sx={{ mb: 1, color: '#2d3748' }}>
-                Overall Progress
-              </Typography>
-              <LinearProgress
-                variant="determinate"
-                value={progress}
-                sx={{
-                  height: 8,
-                  borderRadius: 4,
-                  backgroundColor: '#e0e0e0',
-                  '& .MuiLinearProgress-bar': {
-                    background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
-                    borderRadius: 4
-                  }
-                }}
-              />
-              <Typography variant="body2" sx={{ mt: 1, color: '#4a5568' }}>
-                {progress}% Complete
-              </Typography>
-            </Box>
           </Box>
 
           {/* Agent Cards */}
-          <Grid container spacing={3}>
+          <Grid container spacing={3} justifyContent="center">
             {agents.map((agent, index) => (
-              <Grid item xs={12} md={6} key={agent.id}>
+              <Grid item xs={12} md={4} key={agent.id}>
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -343,7 +344,8 @@ const AgentProgressScreen: React.FC<AgentProgressScreenProps> = ({
               </motion.div>
             </Box>
           )}
-        </Paper>
+          </Paper>
+        </motion.div>
       </motion.div>
     </AnimatePresence>
   );
