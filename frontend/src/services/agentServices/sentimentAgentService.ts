@@ -46,7 +46,12 @@ class SentimentAgentService {
   private baseUrl: string = 'https://api.openai.com/v1';
 
   constructor() {
-    this.apiKey = process.env.REACT_APP_OPENAI_API_KEY || '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';
+    this.apiKey = process.env.REACT_APP_OPENAI_API_KEY || '';
+    
+    if (!this.apiKey) {
+      console.error('❌ OpenAI API key not found. Please set REACT_APP_OPENAI_API_KEY in .env file');
+      throw new Error('OpenAI API key is required');
+    }
   }
 
   async analyzeSentiment(request: SentimentAgentRequest): Promise<SentimentAgentResponse> {

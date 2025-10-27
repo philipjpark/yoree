@@ -55,17 +55,12 @@ class OpenAICodexService {
   private model: string = 'gpt-4'; // Using GPT-4 as Codex alternative
 
   constructor() {
-    // Try environment variable first, then fallback to hardcoded key
-    const envKey = process.env.REACT_APP_OPENAI_API_KEY;
-    const hardcodedKey = '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';
+    // Use environment variable only
+    this.apiKey = process.env.REACT_APP_OPENAI_API_KEY || '';
     
-    this.apiKey = envKey || hardcodedKey;
-    
-    console.log('🔍 Environment variable present:', !!envKey);
-    console.log('🔍 Environment key length:', envKey?.length || 0);
-    console.log('🔍 Using key:', envKey ? 'Environment' : 'Hardcoded');
-    console.log('🔑 API Key loaded:', this.apiKey.substring(0, 20) + '...');
-    console.log('🔑 Full API Key length:', this.apiKey.length);
+    console.log('🔍 Environment variable present:', !!this.apiKey);
+    console.log('🔍 Environment key length:', this.apiKey?.length || 0);
+    console.log('🔑 API Key loaded:', this.apiKey ? this.apiKey.substring(0, 20) + '...' : 'None');
     
     if (!this.apiKey) {
       console.error('❌ No OpenAI API key found!');
