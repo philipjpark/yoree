@@ -321,7 +321,7 @@ const TokenLaunch: React.FC = () => {
                             WebkitTextFillColor: 'transparent'
                           }}
                         >
-                          Q4 2025
+                          Q1 2026
                         </Typography>
                       </Card>
                     </motion.div>
