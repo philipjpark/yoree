@@ -1,0 +1,6 @@
+[submodule "minam"]
+	path = minam
+	url = https://github.com/philipjpark/minam.git
+[submodule "syuzhet"]
+	path = syuzhet
+	url = https://github.com/philipjpark/syuzhet.git

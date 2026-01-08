@@ -6,72 +6,59 @@ import {
   Button,
   Box,
   Container,
-  useTheme,
-  Divider,
   Chip,
-  Avatar,
-  IconButton,
-  Tooltip,
-  Badge,
-  Paper
+  Avatar
 } from '@mui/material';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Dashboard as DashboardIcon,
-  Restaurant as RestaurantIcon,
-  Store as StoreIcon,
-  Brush as BrushIcon,
-  AccountBalanceWallet as WalletIcon,
   TrendingUp as TrendingUpIcon,
-  EmojiEvents as TrophyIcon,
-  Build as BuildIcon,
-  LocalDining as DiningIcon,
-  Kitchen as KitchenIcon,
-  Cake as CakeIcon,
-  LocalPizza as PizzaIcon,
-  Fastfood as FastfoodIcon,
-  SetMeal as SetMealIcon,
-  RestaurantMenu as MenuIcon,
-  AutoAwesome as AutoIcon
+  AddCircle as AddCircleIcon,
+  Analytics as AnalyticsIcon,
+  DataObject as DataObjectIcon,
+  AccountBalance as ExchangeIcon,
+  LightMode as LightModeIcon,
+  DarkMode as DarkModeIcon
 } from '@mui/icons-material';
-import WalletConnect from './WalletConnect';
+import { IconButton, useTheme as useMuiTheme } from '@mui/material';
+import { useTheme } from '../contexts/ThemeContext';
 import BNBWalletConnect from './BNBWalletConnect';
 
 const Navbar: React.FC = () => {
-  const theme = useTheme();
   const location = useLocation();
-  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+  const { mode, toggleMode } = useTheme();
+  const theme = useMuiTheme();
 
   const navItems = [
     {
-      path: '/dashboard',
-      label: 'Dashboard',
+      path: '/signal-markets',
+      label: 'Markets',
+      icon: <ExchangeIcon sx={{ fontSize: 20 }} />,
+      badge: null
+    },
+    {
+      path: '/create-signal',
+      label: 'Create Signal',
+      icon: <AddCircleIcon sx={{ fontSize: 20 }} />,
+      badge: null
+    },
+    {
+      path: '/portfolio',
+      label: 'Portfolio',
       icon: <DashboardIcon sx={{ fontSize: 20 }} />,
       badge: null
     },
     {
-      path: '/strategy-builder',
-      label: 'Strategy Builder',
-      icon: <KitchenIcon sx={{ fontSize: 20 }} />,
-      badge: 'AI'
-    },
-    {
-      path: '/strategy-creator',
-      label: 'Create Strategy',
-      icon: <MenuIcon sx={{ fontSize: 20 }} />,
-      badge: 'NEW'
-    },
-    {
-      path: '/strategy-marketplace',
-      label: 'Strategy Market',
-      icon: <StoreIcon sx={{ fontSize: 20 }} />,
+      path: '/analytics',
+      label: 'Analytics',
+      icon: <AnalyticsIcon sx={{ fontSize: 20 }} />,
       badge: null
     },
     {
-      path: '/token-incentivization',
-      label: 'Token Incentives',
-      icon: <CakeIcon sx={{ fontSize: 20 }} />,
+      path: '/data-feeds',
+      label: 'Data Feeds',
+      icon: <DataObjectIcon sx={{ fontSize: 20 }} />,
       badge: null
     }
   ];
@@ -82,10 +69,10 @@ const Navbar: React.FC = () => {
     <AppBar 
       position="static"
       sx={{
-        background: 'linear-gradient(45deg, #667eea 30%, #764ba2 90%)',
-        boxShadow: '0 4px 20px rgba(102, 126, 234, 0.3)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+        background: 'linear-gradient(135deg, #0A0E27 0%, #1A1F3A 100%)',
+        backdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(102, 126, 234, 0.2)',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
       }}
     >
       <Container maxWidth="xl">
@@ -112,27 +99,43 @@ const Navbar: React.FC = () => {
                   width: 40,
                   height: 40,
                   mr: 2,
-                  background: 'rgba(255, 255, 255, 0.2)',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255, 255, 255, 0.3)'
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
                 }}
               >
-                <RestaurantIcon />
+                <TrendingUpIcon />
               </Avatar>
-              <Typography
-                variant="h5"
-                sx={{
-                  fontFamily: '"Noto Sans KR", sans-serif',
-                  fontWeight: 800,
-                  background: 'linear-gradient(45deg, #ffffff 30%, #f0f0f0 90%)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  textShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                }}
-              >
-                YOREE
-              </Typography>
+              <Box>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontFamily: '"Inter", sans-serif',
+                    fontWeight: 800,
+                    background: 'linear-gradient(45deg, #ffffff 0%, #E2E8F0 100%)',
+                    backgroundClip: 'text',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    lineHeight: 1.2,
+                    fontSize: '1.1rem'
+                  }}
+                >
+                  YOREE SIGNAL MARKETS
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontFamily: '"Inter", sans-serif',
+                    fontSize: '0.65rem',
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    fontWeight: 500,
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                  The Intelligence Exchange
+                </Typography>
+              </Box>
             </Box>
           </motion.div>
 
@@ -154,28 +157,26 @@ const Navbar: React.FC = () => {
                     borderRadius: '12px',
                     px: 3,
                     py: 1.5,
-                    color: 'white',
+                    color: theme.palette.text.primary,
                     fontWeight: 600,
                     textTransform: 'none',
                     fontSize: '0.95rem',
                     background: isActive(item.path) 
-                      ? 'rgba(255, 255, 255, 0.2)' 
+                      ? 'rgba(102, 126, 234, 0.2)' 
                       : 'transparent',
                     backdropFilter: isActive(item.path) ? 'blur(10px)' : 'none',
                     border: isActive(item.path) 
-                      ? '1px solid rgba(255, 255, 255, 0.3)' 
+                      ? '1px solid rgba(102, 126, 234, 0.4)' 
                       : '1px solid transparent',
                     '&:hover': {
-                      background: 'rgba(255, 255, 255, 0.15)',
+                      background: 'rgba(102, 126, 234, 0.15)',
                       backdropFilter: 'blur(10px)',
-                      border: '1px solid rgba(255, 255, 255, 0.4)',
+                      border: '1px solid rgba(102, 126, 234, 0.3)',
                       transform: 'translateY(-1px)',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                      boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)'
                     },
                     transition: 'all 0.3s ease'
                   }}
-                  onMouseEnter={() => setHoveredButton(item.path)}
-                  onMouseLeave={() => setHoveredButton(null)}
                 >
                   {item.label}
                   {item.badge && (
@@ -201,6 +202,26 @@ const Navbar: React.FC = () => {
               </motion.div>
             ))}
           </Box>
+
+          {/* Theme Toggle */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+          >
+            <IconButton
+              onClick={toggleMode}
+              sx={{
+                color: 'white',
+                mr: 2,
+                '&:hover': {
+                  background: 'rgba(255, 255, 255, 0.1)',
+                }
+              }}
+            >
+              {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+            </IconButton>
+          </motion.div>
 
           {/* Wallet Connect */}
           <motion.div
