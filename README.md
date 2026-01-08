@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="./frontend/public/yoree-logo.png" alt="Yoree Logo" width="200" style="border-radius: 12px; margin-bottom: 20px;">
+<img src="./frontend/src/assets/images/yoree_logo.png" alt="Yoree Logo" width="200" style="border-radius: 12px; margin-bottom: 20px;">
 
 ## The Intelligence Exchange
 
