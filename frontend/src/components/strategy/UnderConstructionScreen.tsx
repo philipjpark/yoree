@@ -165,7 +165,7 @@ const UnderConstructionScreen: React.FC<UnderConstructionScreenProps> = ({
                   />
                 </Box>
                 <Typography variant="body2" sx={{ color: '#6b7280', fontStyle: 'italic' }}>
-                  Expected completion: Q4 2025
+                  Expected completion: Q1 2026
                 </Typography>
               </Box>
 
