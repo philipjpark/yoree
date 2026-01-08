@@ -121,4 +121,7 @@ export interface StrategyInsight {
   confidence: number;
   timestamp: string;
   recommendations: string[];
-} 
+}
+
+// Export Signal types
+export * from './signal'; 
