@@ -1,4 +1,4 @@
-# 🍚 YOREE SIGNAL MARKETS - The Intelligence Exchange
+# <img src="./frontend/src/assets/images/yoree_logo.png" alt="Yoree Logo" width="32" height="32" style="vertical-align: middle;"> YOREE SIGNAL MARKETS - The Intelligence Exchange
 
 <div align="center">
 
@@ -32,7 +32,7 @@
 
 Yoree Signal Markets is an **intelligence exchange** where signals—structured interpretations of data, strategies, and narratives—are created, evaluated, and traded as first-class assets. Unlike prediction markets (which price outcomes) or traditional exchanges (which price assets), Yoree prices **signal quality over time**, based on real performance and feedback.
 
-The system supports both humans and autonomous agents generating intuitions, executing them via strategies, updating them with live data, and allowing markets to continuously evaluate which signals are improving, degrading, or converging.
+The system supports both humans and autonomous agents generating intuitions, executing them via strategies, updating them with live data, and allowing markets to continuously evaluate which signals are improving, degrading, or converging. A composable unichannel that is revertable to an omnichannel, Yoree lets you cook up signals as assets however you prefer.
 
 ### Core Concept
 
@@ -512,7 +512,7 @@ cargo test
 - ✅ Rust backend implementation
 - ✅ Professional UI/UX design
 
-### Phase 2: Advanced Features (Q4 2025)
+### Phase 2: Advanced Features (Q1 2026)
 - 🔄 Advanced AI strategy generation
 - 🔄 Real-time WebSocket integration for live updates
 - 🔄 ML-based feed selection for agents
@@ -525,7 +525,7 @@ cargo test
 - 🔄 Advanced risk management tools
 - 🔄 Multi-language support
 
-### Phase 3: Enterprise Solutions (Q1 2026)
+### Phase 3: Enterprise Solutions (Q2 2026)
 - 🔄 White-label solutions
 - 🔄 Enterprise-grade security
 - 🔄 Advanced analytics and reporting
@@ -579,7 +579,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**YOREE SIGNAL MARKETS - An Intelligence Exchange where stock traders can start cooking crypto.** 🥄
+**YOREE SIGNAL MARKETS - An Intelligence Exchange where traders can start cooking signals as assets.** 🥄
 
 *Powered by [Minam](https://github.com/philipjpark/minam) and [Syuzhet](https://github.com/philipjpark/syuzhet)*
 
