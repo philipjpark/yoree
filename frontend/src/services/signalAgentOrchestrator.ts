@@ -41,6 +41,11 @@ export interface SignalAgentOrchestrationResponse {
     refined: string;
     reasoning: string;
   };
+  assetDiscovery?: {
+    assets: any[];
+    strategies: any[];
+    reasoning: string;
+  };
   deployment: {
     signalId: string;
     marketId?: string;
@@ -108,7 +113,21 @@ class SignalAgentOrchestrator {
       hypothesisStep.result = hypothesis;
       totalApiCalls += hypothesis.apiCalls || 1;
 
-      // Step 3: Signal Deployment Agent
+      // Step 3: Asset Discovery & Strategy Generation Agent
+      const assetDiscoveryStep: AgentStep = {
+        agentName: 'Asset Discovery & Strategy Agent',
+        status: 'running',
+        timestamp: new Date().toISOString(),
+      };
+      agentSteps.push(assetDiscoveryStep);
+
+      console.log('🔍 Agent 3/4: Asset Discovery & Strategy Agent...');
+      const assetDiscovery = await this.discoverAssetsAndGenerateStrategies(request, hypothesis.hypothesis);
+      assetDiscoveryStep.status = 'completed';
+      assetDiscoveryStep.result = assetDiscovery;
+      totalApiCalls += assetDiscovery.apiCalls || 1;
+
+      // Step 4: Signal Deployment Agent
       const deploymentStep: AgentStep = {
         agentName: 'Signal Deployment Agent',
         status: 'running',
@@ -116,8 +135,8 @@ class SignalAgentOrchestrator {
       };
       agentSteps.push(deploymentStep);
 
-      console.log('🚀 Agent 3/3: Signal Deployment Agent...');
-      const deployment = await this.deploySignal(request, feedSelection.feeds, hypothesis);
+      console.log('🚀 Agent 4/4: Signal Deployment Agent...');
+      const deployment = await this.deploySignal(request, feedSelection.feeds, hypothesis, assetDiscovery);
       deploymentStep.status = 'completed';
       deploymentStep.result = deployment;
       totalApiCalls += 1;
@@ -139,13 +158,18 @@ class SignalAgentOrchestrator {
           refined: hypothesis.hypothesis,
           reasoning: hypothesis.reasoning,
         },
+        assetDiscovery: {
+          assets: assetDiscovery.assets,
+          strategies: assetDiscovery.strategies,
+          reasoning: assetDiscovery.reasoning,
+        },
         deployment: {
           signalId: deployment.signalId,
           marketId: deployment.marketId,
           status: 'deployed',
         },
         metadata: {
-          totalAgents: 3,
+          totalAgents: 4,
           totalApiCalls,
           duration,
           timestamp: new Date().toISOString(),
@@ -198,7 +222,7 @@ class SignalAgentOrchestrator {
         
         const prompt = `# DATA FEED SELECTOR AGENT
 
-You are an AI agent specialized in selecting optimal data feeds for trading signals.
+You are an AI agent specialized in selecting optimal data feeds for trading signals that will enable asset discovery and strategy generation.
 
 ## AVAILABLE DATA FEEDS:
 ${JSON.stringify(feedsList, null, 2)}
@@ -216,13 +240,14 @@ Select exactly 2 data feeds that would be most complementary and useful for this
 2. Update frequency alignment with signal time horizon
 3. Data quality and provider reliability
 4. Complementary nature of the two feeds
+5. Ability to discover related assets across crypto, stocks, futures, forex, predictions, ETFs, bonds, and commodities
 
 Return ONLY valid JSON in this format:
 \`\`\`json
 {
   "feed1Id": "feed-id-1",
   "feed2Id": "feed-id-2",
-  "reasoning": "Detailed explanation of why these feeds were selected and how they complement each other"
+  "reasoning": "Detailed explanation of why these feeds were selected and how they complement each other for asset discovery and strategy generation"
 }
 \`\`\``;
 
@@ -233,7 +258,7 @@ Return ONLY valid JSON in this format:
             messages: [
               {
                 role: 'system',
-                content: 'You are a specialized data feed selection AI agent. Always respond with valid JSON only.',
+                content: 'You are a specialized data feed selection AI agent focused on enabling asset discovery across crypto, stocks, futures, forex, predictions, ETFs, bonds, and commodities. Your selections should support strategy generation and trading execution. Always respond with valid JSON only.',
               },
               {
                 role: 'user',
@@ -357,9 +382,9 @@ Return ONLY valid JSON in this format:
 
       // If hypothesis provided, refine it with AI
       if (request.hypothesis && this.apiKey) {
-        const prompt = `# HYPOTHESIS REFINEMENT AGENT
+        const prompt = `# HYPOTHESIS REFINEMENT & ASSET DISCOVERY AGENT
 
-You are an AI agent specialized in refining trading signal hypotheses.
+You are an AI agent specialized in refining trading signal hypotheses and identifying related assets across all asset classes.
 
 ## ORIGINAL HYPOTHESIS:
 ${request.hypothesis}
@@ -373,13 +398,29 @@ ${request.hypothesis}
 - Signal Type: ${request.preferences?.signalType || 'Not specified'}
 
 ## YOUR TASK:
-Refine the hypothesis to be more specific, actionable, and aligned with the available data feeds. Make it:
-1. More precise and testable
-2. Aligned with the data feed capabilities
-3. Include specific timeframes and conditions
-4. More actionable for signal scoring
+1. Refine the hypothesis to be more specific, actionable, and aligned with the available data feeds. Make it:
+   - More precise and testable
+   - Aligned with the data feed capabilities
+   - Include specific timeframes and conditions
+   - More actionable for signal scoring
 
-Return ONLY the refined hypothesis as a single, clear statement (no JSON, just text).`;
+2. Consider what assets across different classes would be related to this signal:
+   - Crypto (tokens, futures, options)
+   - Stocks (companies exposed to the theme)
+   - Futures (commodities, financial)
+   - Forex (currency pairs)
+   - Predictions (Polymarket, etc.)
+   - ETFs (sector/thematic)
+   - Bonds (sovereign, corporate)
+   - Commodities (physical, derivatives)
+
+3. Think about trading strategies for these assets:
+   - Entry/exit conditions
+   - Position sizing
+   - Risk management
+   - Time horizons
+
+Return ONLY the refined hypothesis as a single, clear statement that considers asset discovery and strategy implications (no JSON, just text).`;
 
         const response = await axios.post(
           'https://api.openai.com/v1/chat/completions',
@@ -388,7 +429,7 @@ Return ONLY the refined hypothesis as a single, clear statement (no JSON, just t
             messages: [
               {
                 role: 'system',
-                content: 'You are a specialized hypothesis refinement AI agent. Return only the refined hypothesis text.',
+                content: 'You are a specialized hypothesis refinement AI agent focused on asset discovery and strategy generation. Your refined hypotheses should consider related assets across crypto, stocks, futures, forex, predictions, ETFs, bonds, and commodities, and how to trade them. Return only the refined hypothesis text.',
               },
               {
                 role: 'user',
@@ -428,19 +469,178 @@ Return ONLY the refined hypothesis as a single, clear statement (no JSON, just t
   }
 
   /**
-   * Agent 3: Signal Deployment Agent
+   * Agent 3: Asset Discovery & Strategy Generation Agent
+   * Discovers related assets across all asset classes and generates trading strategies
+   */
+  private async discoverAssetsAndGenerateStrategies(
+    request: SignalAgentOrchestrationRequest,
+    hypothesis: string
+  ): Promise<{
+    assets: any[];
+    strategies: any[];
+    reasoning: string;
+    apiCalls: number;
+  }> {
+    try {
+      if (!this.apiKey) {
+        // Fallback: Return basic asset discovery
+        return {
+          assets: [],
+          strategies: [],
+          reasoning: 'Asset discovery requires OpenAI API key',
+          apiCalls: 0,
+        };
+      }
+
+      const prompt = `# ASSET DISCOVERY & STRATEGY GENERATION AGENT
+
+You are an AI agent specialized in discovering related assets across all asset classes and generating trading strategies.
+
+## SIGNAL CONTEXT:
+- Underlying Asset: ${request.underlyingAsset || 'Not specified'}
+- Hypothesis: ${hypothesis}
+- Signal Type: ${request.preferences?.signalType || 'Not specified'}
+- Risk Tolerance: ${request.preferences?.riskTolerance || 'medium'}
+- Raw Input: ${request.rawInput?.substring(0, 500) || 'Not provided'}
+
+## YOUR TASK:
+
+1. **ASSET DISCOVERY**: Identify related assets across ALL asset classes:
+   - **Crypto**: Tokens, futures, options (e.g., BTC, ETH, ETHUSDT futures)
+   - **Stocks**: Companies exposed to the signal theme (e.g., XOM for oil, TSLA for EV)
+   - **Futures**: Commodity and financial futures (e.g., CL for oil, GC for gold)
+   - **Forex**: Currency pairs affected (e.g., USD/VES for Venezuela)
+   - **Predictions**: Prediction market outcomes (e.g., Polymarket contracts)
+   - **ETFs**: Sector and thematic ETFs (e.g., USO for oil, XLE for energy)
+   - **Bonds**: Sovereign and corporate bonds (e.g., Venezuelan bonds)
+   - **Commodities**: Physical and derivative commodities (e.g., WTI, Brent)
+
+2. **STRATEGY GENERATION**: For each discovered asset, generate a trading strategy:
+   - Entry conditions (when to buy)
+   - Exit conditions (when to sell/take profit)
+   - Stop loss levels
+   - Position sizing recommendations
+   - Time horizon
+   - Risk management rules
+
+3. **HOW TO PLAY THE ASSET**: Provide specific instructions on:
+   - Which exchange to use (Binance, NYSE, CME, Polymarket, etc.)
+   - Order types (market, limit, stop-loss)
+   - Position management
+   - Monitoring and adjustment strategies
+
+Return ONLY valid JSON in this format:
+\`\`\`json
+{
+  "assets": [
+    {
+      "symbol": "CL",
+      "name": "WTI Crude Oil Futures",
+      "assetClass": "futures",
+      "exchange": "NYMEX",
+      "relevanceScore": 95,
+      "currentPrice": 75.50,
+      "priceChange24h": 2.3
+    }
+  ],
+  "strategies": [
+    {
+      "assetSymbol": "CL",
+      "assetClass": "futures",
+      "strategy": {
+        "entryConditions": ["Price breaks above $76 resistance", "Volume increases 20%"],
+        "exitConditions": ["Take profit at $80", "Stop loss at $74"],
+        "positionSize": "2-5% of portfolio",
+        "timeHorizon": "1-2 weeks",
+        "riskManagement": "Use trailing stop loss after entry", 
+        "monitoring": "Watch OPEC announcements and EIA reports"
+      },
+      "howToPlay": {
+        "exchange": "NYMEX via broker (Interactive Brokers, TD Ameritrade)",
+        "orderTypes": ["Limit order at $76.10", "Stop-loss at $74.00", "Take-profit at $80.00"],
+        "positionManagement": "Scale in 50% at entry, 50% on confirmation",
+        "adjustments": "Move stop to breakeven after +2% gain"
+      }
+    }
+  ],
+  "reasoning": "Detailed explanation of asset discovery and strategy rationale"
+}
+\`\`\`
+
+Focus on generating actionable assets and strategies that users can immediately trade.`;
+
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a specialized asset discovery and strategy generation AI agent. You discover related assets across crypto, stocks, futures, forex, predictions, ETFs, bonds, and commodities, and generate detailed trading strategies with entry/exit conditions, position sizing, and risk management. Always respond with valid JSON only.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          max_tokens: 3000,
+          temperature: 0.7,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const generatedText = response.data.choices[0].message.content.trim();
+      const jsonMatch = generatedText.match(/```json\s*([\s\S]*?)\s*```/) || generatedText.match(/\{[\s\S]*\}/);
+      
+      if (jsonMatch) {
+        const result = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+        return {
+          assets: result.assets || [],
+          strategies: result.strategies || [],
+          reasoning: result.reasoning || 'Generated asset discovery and strategies',
+          apiCalls: 1,
+        };
+      }
+
+      // Fallback if JSON parsing fails
+      return {
+        assets: [],
+        strategies: [],
+        reasoning: 'Failed to parse asset discovery response',
+        apiCalls: 1,
+      };
+    } catch (error: any) {
+      console.error('Asset Discovery & Strategy Agent Error:', error);
+      return {
+        assets: [],
+        strategies: [],
+        reasoning: `Asset discovery failed: ${error.message}`,
+        apiCalls: 0,
+      };
+    }
+  }
+
+  /**
+   * Agent 4: Signal Deployment Agent
    * Creates and deploys the signal to the market
    */
   private async deploySignal(
     request: SignalAgentOrchestrationRequest,
     feeds: { feed1: MinamFeed; feed2: MinamFeed },
-    hypothesis: { hypothesis: string; reasoning: string }
+    hypothesis: { hypothesis: string; reasoning: string },
+    assetDiscovery?: { assets: any[]; strategies: any[]; reasoning: string }
   ): Promise<{
     signal: any;
     signalId: string;
     marketId?: string;
   }> {
     try {
+      // Include asset discovery and strategies in signal metadata
       const signalRequest: SignalCreationRequest = {
         underlyingAsset: request.underlyingAsset || 'UNKNOWN',
         hypothesis: hypothesis.hypothesis,
@@ -453,6 +653,14 @@ Return ONLY the refined hypothesis as a single, clear statement (no JSON, just t
           name: 'Yoree Agent Orchestrator',
           isAgentAnnounced: true,
         },
+        // Include asset discovery and strategies if available
+        ...(assetDiscovery && {
+          metadata: {
+            assetDiscovery: assetDiscovery.assets,
+            strategies: assetDiscovery.strategies,
+            reasoning: assetDiscovery.reasoning,
+          },
+        }),
       };
 
       const signal = await signalService.createSignal(signalRequest);
@@ -474,7 +682,7 @@ Return ONLY the refined hypothesis as a single, clear statement (no JSON, just t
     } catch (error: any) {
       console.warn('Backend unavailable, creating mock signal:', error.message);
       // Fallback: Create a mock signal when backend is unavailable
-      return this.createMockSignal(request, feeds, hypothesis);
+      return this.createMockSignal(request, feeds, hypothesis, assetDiscovery);
     }
   }
 
@@ -484,7 +692,8 @@ Return ONLY the refined hypothesis as a single, clear statement (no JSON, just t
   private createMockSignal(
     request: SignalAgentOrchestrationRequest,
     feeds: { feed1: MinamFeed; feed2: MinamFeed },
-    hypothesis: { hypothesis: string; reasoning: string }
+    hypothesis: { hypothesis: string; reasoning: string },
+    assetDiscovery?: { assets: any[]; strategies: any[]; reasoning: string }
   ): {
     signal: any;
     signalId: string;
@@ -535,6 +744,14 @@ Return ONLY the refined hypothesis as a single, clear statement (no JSON, just t
       status: 'active' as const,
       createdAt: now,
       updatedAt: now,
+      // Include asset discovery and strategies if available
+      ...(assetDiscovery && {
+        assetBranches: this.convertAssetDiscoveryToBranches(assetDiscovery.assets),
+        strategies: assetDiscovery.strategies,
+        metadata: {
+          assetDiscoveryReasoning: assetDiscovery.reasoning,
+        },
+      }),
     };
 
     return {
@@ -542,6 +759,42 @@ Return ONLY the refined hypothesis as a single, clear statement (no JSON, just t
       signalId: signalId,
       marketId: undefined, // Market will be created when backend is available
     };
+  }
+
+  /**
+   * Convert asset discovery results to AssetBranches format
+   */
+  private convertAssetDiscoveryToBranches(assets: any[]): any {
+    const branches: any = {
+      crypto: [],
+      stocks: [],
+      futures: [],
+      forex: [],
+      predictions: [],
+      etfs: [],
+      bonds: [],
+      commodities: [],
+    };
+
+    assets.forEach((asset) => {
+      const assetClass = asset.assetClass?.toLowerCase();
+      if (assetClass && branches[assetClass]) {
+        branches[assetClass].push({
+          id: `asset-${asset.symbol}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          symbol: asset.symbol,
+          name: asset.name,
+          assetClass: assetClass,
+          exchange: asset.exchange,
+          currentPrice: asset.currentPrice || 0,
+          priceChange24h: asset.priceChange24h || 0,
+          volume24h: asset.volume24h || 0,
+          relevanceScore: asset.relevanceScore || 70,
+          connectionStatus: 'available' as const,
+        });
+      }
+    });
+
+    return branches;
   }
 }
 

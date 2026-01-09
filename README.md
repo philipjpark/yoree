@@ -30,20 +30,76 @@
 
 ## 🌟 What is Yoree Signal Markets?
 
-Yoree Signal Markets is an **intelligence exchange** where signals—structured interpretations of data, strategies, and narratives—are created, evaluated, and traded as first-class assets. Unlike prediction markets (which price outcomes) or traditional exchanges (which price assets), Yoree prices **signal quality over time**, based on real performance and feedback.
+Yoree Signal Markets is the **first signal-driven intelligence exchange** where signals automatically discover and connect to related assets across all asset classes. Unlike traditional platforms where you search for assets, Yoree starts with your signal hypothesis and automatically surfaces related crypto, stocks, futures, forex, predictions, ETFs, and more—all in one unified view.
 
-The system supports both humans and autonomous agents generating intuitions, executing them via strategies, updating them with live data, and allowing markets to continuously evaluate which signals are improving, degrading, or converging. A composable unichannel that is revertable to an omnichannel, Yoree lets you cook up signals as assets however you prefer.
+### 🚀 Revolutionary Signal-First Workflow
+
+**Traditional Approach:**
+1. Know what asset you want to trade
+2. Search for it across exchanges
+3. Analyze it manually
+4. Trade on separate platforms
+
+**Yoree's Approach:**
+1. **Create a Signal** (e.g., "Venezuela Oil Maduro")
+2. **Automatic Asset Discovery** - Platform finds related assets:
+   - Oil futures (WTI, Brent)
+   - Energy stocks (XOM, CVX)
+   - ETFs (USO, XLE)
+   - Prediction markets
+   - Regional exposure
+3. **Validation Sources** - Access Google Trends, X/Twitter, Reddit, news, data feeds
+4. **Unified Trading** - Connect exchanges and trade directly through Yoree
 
 ### Core Concept
 
-A **Signal** is a structured object:
-- An underlying asset or domain (e.g., ETH, macro regime, narrative)
-- A hypothesis or interpretation (generated or user-defined)
+A **Signal** is a structured intelligence asset:
+- An underlying domain or hypothesis (e.g., "Venezuela Oil", "ETH adoption", "Macro regime")
+- A hypothesis or interpretation (AI-generated or user-defined)
+- **Automatic Asset Branches** - Related assets across crypto, stocks, futures, forex, predictions
+- **Exchange Connections** - Direct links to trade on Binance, NYSE, CME, Polymarket, etc.
+- **Validation Sources** - Google Trends, social media, news, data feeds
 - Data bindings (from Minam)
-- Optional strategy or execution logic
-- A continuous signal score/index that updates over time
+- A continuous quality score that updates over time
 
-Signals are convertible into tradeable market instruments, creating a living system where intelligence competes and learns via markets.
+**Signals create branches** that automatically discover and connect to:
+- **Crypto**: Related tokens, futures, options
+- **Stocks**: Companies exposed to the signal theme
+- **Futures**: Commodity and financial futures
+- **Forex**: Currency pairs affected by the signal
+- **Predictions**: Prediction market outcomes
+- **ETFs**: Sector and thematic ETFs
+- **Bonds**: Sovereign and corporate bonds
+- **Commodities**: Physical and derivative commodities
+
+This allows users to make decisions quickly because they don't have to search for assets—the platform presents all relevant options automatically, connected to their exchange accounts for direct trading.
+
+### Example: "Venezuela Oil Maduro" Signal
+
+When you create a signal for "Venezuela Oil Maduro", Yoree automatically discovers:
+
+**Asset Branches:**
+- **Commodities**: WTI Crude Oil Futures (NYMEX), Brent Crude Futures
+- **Stocks**: Exxon Mobil (XOM), Chevron (CVX), ConocoPhillips (COP)
+- **ETFs**: United States Oil Fund (USO), Energy Select Sector SPDR (XLE)
+- **Predictions**: Polymarket outcomes for Venezuela oil production
+- **Bonds**: Venezuelan sovereign bonds, energy sector corporate bonds
+
+**Validation Sources:**
+- **OPEC**: Production data and policy announcements
+- **EIA**: Energy Information Administration reports
+- **Google Trends**: Search volume for "Venezuela oil"
+- **X/Twitter**: Social sentiment and breaking news
+- **News**: Bloomberg, Reuters, Financial Times articles
+- **On-chain**: If applicable, blockchain data
+
+**Exchange Connections:**
+- **NYMEX**: For oil futures trading
+- **NYSE**: For energy stock trading
+- **Polymarket**: For prediction market outcomes
+- **Binance/Coinbase**: For crypto exposure if relevant
+
+All of this is presented in one unified interface, allowing you to quickly assess the signal's implications across all asset classes and trade directly from the platform.
 
 ---
 
@@ -171,7 +227,7 @@ Yoree Signal Markets seamlessly integrates two powerful open-source projects:
 ### System Overview
 
 ```
-User/Agent Input
+User/Agent Input (Hypothesis/Intuition)
     ↓
 Syuzhet AI Thesis Generation
     ↓
@@ -179,7 +235,30 @@ Minam Data Feed Selection (2 feeds)
     ↓
 Signal Creation
     ↓
-Market Asset (Tradeable)
+🔄 AUTOMATIC ASSET DISCOVERY
+    ├─ Crypto (BTC, ETH, tokens, futures)
+    ├─ Stocks (related companies)
+    ├─ Futures (commodities, financial)
+    ├─ Forex (currency pairs)
+    ├─ Predictions (Polymarket, etc.)
+    ├─ ETFs (sector/thematic)
+    ├─ Bonds (sovereign, corporate)
+    └─ Commodities (physical, derivatives)
+    ↓
+Validation Sources Connection
+    ├─ Google Trends
+    ├─ X/Twitter, Reddit, YouTube
+    ├─ Discord, Telegram
+    ├─ News, Bloomberg, Reuters
+    └─ On-chain data, OPEC, EIA
+    ↓
+Market Asset (Tradeable Signal)
+    ↓
+Exchange Connection & Trading
+    ├─ Binance, Coinbase (Crypto)
+    ├─ NYSE, NASDAQ (Stocks)
+    ├─ CME, NYMEX (Futures)
+    └─ Polymarket (Predictions)
     ↓
 Continuous Scoring & Updates
     ↓
@@ -402,6 +481,17 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com aiplatform.g
 - **Signal Creation**: Transform intuition into tradeable signal assets
 - **Data Feed Integration**: Bind signals to real-time Minam data feeds
 - **AI Thesis Generation**: Use Syuzhet to generate structured hypotheses
+- **🔄 Automatic Asset Discovery**: Signals automatically discover related assets across:
+  - Crypto (tokens, futures, options)
+  - Stocks (related companies)
+  - Futures (commodities, financial)
+  - Forex (currency pairs)
+  - Predictions (Polymarket, etc.)
+  - ETFs (sector/thematic)
+  - Bonds (sovereign, corporate)
+  - Commodities (physical, derivatives)
+- **Exchange Integration**: Connect to Binance, NYSE, CME, Polymarket, and more for direct trading
+- **Validation Sources**: Access Google Trends, X/Twitter, Reddit, YouTube, Discord, Telegram, news, on-chain data, OPEC, EIA, Bloomberg, Reuters
 - **Market Trading**: Trade signal quality as first-class assets
 - **Quality Scoring**: Continuous signal quality updates based on performance
 - **Historical Tracking**: Track signal performance over time
