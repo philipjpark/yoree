@@ -11,31 +11,60 @@ export class SignalService {
   }
 
   async createSignal(request: SignalCreationRequest): Promise<Signal> {
-    const response = await fetch(`${this.baseUrl}/api/signals`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
+    try {
+      const response = await fetch(`${this.baseUrl}/api/signals`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to create signal');
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text.substring(0, 200));
+        throw new Error(`Server returned ${response.status}: ${response.statusText}. Make sure the backend is running at ${this.baseUrl}`);
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
+        throw new Error(error.error || 'Failed to create signal');
+      }
+
+      const data = await response.json();
+      return data.signal || data;
+    } catch (error: any) {
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        throw new Error(`Cannot connect to backend at ${this.baseUrl}. Please ensure the backend server is running.`);
+      }
+      throw error;
     }
-
-    const data = await response.json();
-    return data.signal;
   }
 
   async listSignals(): Promise<Signal[]> {
-    const response = await fetch(`${this.baseUrl}/api/signals`);
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch signals');
-    }
+    try {
+      const response = await fetch(`${this.baseUrl}/api/signals`);
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text.substring(0, 200));
+        throw new Error(`Server returned ${response.status}: ${response.statusText}. Make sure the backend is running at ${this.baseUrl}`);
+      }
 
-    return response.json();
+      if (!response.ok) {
+        throw new Error(`Failed to fetch signals: ${response.status} ${response.statusText}`);
+      }
+
+      return response.json();
+    } catch (error: any) {
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        throw new Error(`Cannot connect to backend at ${this.baseUrl}. Please ensure the backend server is running.`);
+      }
+      throw error;
+    }
   }
 
   async getSignal(signalId: string): Promise<Signal> {

@@ -18,8 +18,13 @@ serde_json = "1.0"
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chrono"] }
 
 # Blockchain/Web3
-ethers = { version = "2.0", features = ["ws", "rustls"] }
+# NOTE: If you get edition2024 errors, these dependencies require Rust 1.88+
+# Temporarily comment these out if you can't update Rust yet
+ethers = { version = "2.0", features = ["ws", "rustls"], default-features = false }
 web3 = "0.19"
+# Alternative: Use older versions that don't require edition2024:
+# ethers = { version = "1.0", features = ["ws", "rustls"] }
+# web3 = "0.18"
 
 # Environment and config
 dotenv = "0.15"
@@ -52,4 +57,11 @@ ndarray = "0.15"
 statrs = "0.16"
 
 [dev-dependencies]
-tokio-test = "0.4" 
+tokio-test = "0.4"
+
+# Workaround for home 0.5.12 requiring edition2024
+# Force Cargo to use home 0.5.11 by creating a local override
+# This requires manually downloading home 0.5.11 or updating Rust
+# 
+# Alternative: Update Rust with: rustup update stable
+# If rustup update fails, try: rustup self update && rustup update stable

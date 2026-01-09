@@ -26,6 +26,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   AddCircle as AddCircleIcon,
   AutoAwesome as AIIcon,
+  AutoAwesome as SparkleIcon,
   ShowChart as ChartIcon,
   DataObject as DataIcon,
   Psychology as BrainIcon,
@@ -34,11 +35,17 @@ import {
   ArrowBack as ArrowBackIcon,
   FlashOn as FlashIcon,
   TrendingUp as TrendingUpIcon,
+  Error as ErrorIcon,
 } from '@mui/icons-material';
 import { signalService, syuzhetService } from '../../services';
+import { signalAgentOrchestrator, SignalAgentOrchestrationRequest } from '../../services/signalAgentOrchestrator';
 import { Signal, SignalCreationRequest, MinamFeed, SignalCreator } from '../../types/signal';
 import DataFeedSelector from './DataFeedSelector';
 import AgentIdentifier from './AgentIdentifier';
+import AgentProgressScreen from '../strategy/AgentProgressScreen';
+import SignalSuccessScreen from './SignalSuccessScreen';
+import OrnateAgentProgress from './OrnateAgentProgress';
+import AvatarCreator, { AvatarData } from './AvatarCreator';
 
 const steps = ['Input Hypothesis', 'Select Data Feeds', 'Review & Create'];
 
@@ -106,8 +113,17 @@ const SignalCreationWizard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [createdSignal, setCreatedSignal] = useState<Signal | null>(null);
+  const [useAgenticOrchestration, setUseAgenticOrchestration] = useState(false);
+  const [agentProgress, setAgentProgress] = useState<any>(null);
+  const [showAvatarCreator, setShowAvatarCreator] = useState(false);
+  const [avatarData, setAvatarData] = useState<AvatarData | null>(null);
 
   const handleNext = async () => {
+    // If using agentic orchestration, trigger it directly from step 0
+    if (useAgenticOrchestration && activeStep === 0) {
+      return handleAgenticOrchestration();
+    }
+
     if (activeStep === 0) {
       // Generate thesis if using AI
       if (useAIGeneration && rawInput) {
@@ -146,7 +162,75 @@ const SignalCreationWizard: React.FC = () => {
     setError(null);
   };
 
+  const handleAgenticOrchestration = async () => {
+    if (!underlyingAsset && !rawInput) {
+      setError('Please provide either an underlying asset or raw input for agentic orchestration');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setAgentProgress({
+      currentStep: 0,
+      totalSteps: 3,
+      steps: [],
+    });
+
+    try {
+      const request: SignalAgentOrchestrationRequest = {
+        rawInput: rawInput || undefined,
+        underlyingAsset: underlyingAsset || undefined,
+        hypothesis: hypothesis || undefined,
+        preferences: {
+          signalType: selectedTemplate?.id as any,
+          riskTolerance: 'medium',
+        },
+      };
+
+      const result = await signalAgentOrchestrator.orchestrateSignalCreation(request);
+
+      // Update UI with agent-selected feeds and hypothesis
+      setSelectedFeed1(result.dataFeeds.feed1);
+      setSelectedFeed2(result.dataFeeds.feed2);
+      setHypothesis(result.hypothesis.refined);
+      setUnderlyingAsset(result.signal.underlyingAsset);
+
+      setAgentProgress({
+        currentStep: 3,
+        totalSteps: 3,
+        steps: result.agentSteps,
+        result,
+      });
+
+      setCreatedSignal(result.signal);
+      setSuccess(true);
+      
+      // Automatically add to portfolio (localStorage for now)
+      try {
+        const portfolioSignals = JSON.parse(localStorage.getItem('yoree_portfolio_signals') || '[]');
+        portfolioSignals.push({
+          signal: result.signal,
+          addedAt: new Date().toISOString(),
+        });
+        localStorage.setItem('yoree_portfolio_signals', JSON.stringify(portfolioSignals));
+      } catch (e) {
+        console.warn('Failed to save to portfolio:', e);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Agentic orchestration failed');
+      setAgentProgress(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreateSignal = async () => {
+    // If using agentic orchestration, use the 3-agent pipeline
+    if (useAgenticOrchestration) {
+      return handleAgenticOrchestration();
+    }
+
+    // Manual creation flow
     if (!underlyingAsset || !hypothesis || !selectedFeed1 || !selectedFeed2) {
       setError('Please complete all required fields');
       return;
@@ -168,6 +252,18 @@ const SignalCreationWizard: React.FC = () => {
       const signal = await signalService.createSignal(request);
       setCreatedSignal(signal);
       setSuccess(true);
+      
+      // Automatically add to portfolio (localStorage for now)
+      try {
+        const portfolioSignals = JSON.parse(localStorage.getItem('yoree_portfolio_signals') || '[]');
+        portfolioSignals.push({
+          signal: signal,
+          addedAt: new Date().toISOString(),
+        });
+        localStorage.setItem('yoree_portfolio_signals', JSON.stringify(portfolioSignals));
+      } catch (e) {
+        console.warn('Failed to save to portfolio:', e);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to create signal');
     } finally {
@@ -343,6 +439,41 @@ const SignalCreationWizard: React.FC = () => {
                 />
               </Box>
 
+              <Box sx={{ mb: 3 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={useAgenticOrchestration}
+                      onChange={(e) => setUseAgenticOrchestration(e.target.checked)}
+                      sx={{
+                        color: theme.palette.success.main,
+                        '&.Mui-checked': {
+                          color: theme.palette.success.main,
+                        }
+                      }}
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <FlashIcon sx={{ fontSize: 20, color: theme.palette.success.main }} />
+                      <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                        🤖 Use Agentic Orchestration (3-Agent Pipeline)
+                      </Typography>
+                    </Box>
+                  }
+                />
+                {useAgenticOrchestration && (
+                  <Alert severity="info" sx={{ mt: 1, borderRadius: '12px' }}>
+                    <Typography variant="body2">
+                      <strong>Agentic Orchestration:</strong> Three specialized AI agents will automatically:
+                      <br />• <strong>Agent 1:</strong> Select optimal data feeds from Minam
+                      <br />• <strong>Agent 2:</strong> Generate/refine hypothesis using Syuzhet
+                      <br />• <strong>Agent 3:</strong> Deploy and create the signal
+                    </Typography>
+                  </Alert>
+                )}
+              </Box>
+
               {useAIGeneration ? (
                 <Box>
                   <TextField
@@ -398,10 +529,39 @@ const SignalCreationWizard: React.FC = () => {
                 />
               )}
 
-              <AgentIdentifier
-                creator={creator}
-                onChange={setCreator}
-              />
+              <Box sx={{ mb: 3 }}>
+                <AgentIdentifier
+                  creator={creator}
+                  onChange={setCreator}
+                />
+                {creator.type === 'agent' && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<SparkleIcon />}
+                    onClick={() => setShowAvatarCreator(true)}
+                    sx={{
+                      mt: 2,
+                      borderRadius: '12px',
+                      textTransform: 'none',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Create Agent Avatar
+                  </Button>
+                )}
+              </Box>
+              
+              {showAvatarCreator && (
+                <Box sx={{ mb: 3 }}>
+                  <AvatarCreator
+                    onSave={(data: AvatarData) => {
+                      setAvatarData(data);
+                      setShowAvatarCreator(false);
+                    }}
+                    initialAvatar={avatarData || undefined}
+                  />
+                </Box>
+              )}
             </Box>
           </Box>
         );
@@ -549,6 +709,19 @@ const SignalCreationWizard: React.FC = () => {
     }
   };
 
+  // Show success screen if signal was created
+  if (success && createdSignal) {
+    return (
+      <SignalSuccessScreen
+        signal={createdSignal}
+        onTokenize={() => {
+          // Handle tokenization - will create component for this
+          console.log('Tokenize signal:', createdSignal.id);
+        }}
+      />
+    );
+  }
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <motion.div
@@ -593,22 +766,20 @@ const SignalCreationWizard: React.FC = () => {
             ))}
           </Stepper>
 
-          {error && (
-            <Alert severity="error" sx={{ mb: 2, borderRadius: '12px' }}>
-              {error}
-            </Alert>
-          )}
+                {error && (
+                  <Alert severity="error" sx={{ mb: 2, borderRadius: '12px' }}>
+                    {error}
+                  </Alert>
+                )}
 
-          {success && createdSignal && (
-            <Alert severity="success" sx={{ mb: 2, borderRadius: '12px' }}>
-              <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                Signal created successfully!
-              </Typography>
-              <Typography variant="body2">
-                Signal ID: {createdSignal.id}
-              </Typography>
-            </Alert>
-          )}
+                {agentProgress && (
+                  <OrnateAgentProgress
+                    steps={agentProgress.steps || []}
+                    currentStep={agentProgress.currentStep || 0}
+                    totalSteps={agentProgress.totalSteps || 3}
+                  />
+                )}
+
 
           <AnimatePresence mode="wait">
             <motion.div
@@ -679,7 +850,11 @@ const SignalCreationWizard: React.FC = () => {
                     }
                   }}
                 >
-                  {loading ? 'Processing...' : 'Next'}
+                  {loading 
+                    ? 'Processing...' 
+                    : useAgenticOrchestration && activeStep === 0
+                    ? '🤖 Start Agentic Orchestration'
+                    : 'Next'}
                 </Button>
               )}
             </Box>

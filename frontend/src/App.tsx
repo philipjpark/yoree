@@ -14,6 +14,12 @@ import StrategyCreator from './components/strategy/StrategyCreator';
 import PYUSDSwap from './components/swap/PYUSDSwap';
 import SignalMarketsPage from './pages/SignalMarkets';
 import CreateSignalPage from './pages/CreateSignal';
+import DataFeeds from './pages/DataFeeds';
+import Portfolio from './pages/Portfolio';
+import Analytics from './pages/Analytics';
+import DataVault from './pages/DataVault';
+import SignalBacktester from './pages/SignalBacktester';
+import Community from './pages/Community';
 
 const AppContent: React.FC = () => {
   const { theme } = useTheme();
@@ -26,9 +32,12 @@ const AppContent: React.FC = () => {
               <Route path="/" element={<Home />} />
               <Route path="/signal-markets" element={<SignalMarketsPage />} />
               <Route path="/create-signal" element={<CreateSignalPage />} />
-              <Route path="/portfolio" element={<Dashboard />} />
-              <Route path="/analytics" element={<Dashboard />} />
-              <Route path="/data-feeds" element={<Dashboard />} />
+              <Route path="/portfolio" element={<Portfolio />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/data-feeds" element={<DataFeeds />} />
+              <Route path="/data-vault" element={<DataVault />} />
+              <Route path="/signal-backtester" element={<SignalBacktester />} />
+              <Route path="/community" element={<Community />} />
               {/* Legacy routes - keep for backward compatibility */}
               <Route path="/strategy-builder" element={<StrategyBuilder />} />
               <Route path="/strategy-creator" element={<StrategyCreator />} />
