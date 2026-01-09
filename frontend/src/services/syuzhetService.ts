@@ -60,7 +60,9 @@ export class SyuzhetService {
         }),
       });
 
-      if (response.ok) {
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (response.ok && contentType && contentType.includes('application/json')) {
         const data = await response.json();
         
         return {
@@ -76,37 +78,68 @@ export class SyuzhetService {
     }
 
     // Fallback to Syuzhet API directly
-    const response = await fetch(`${this.syuzhetApiUrl}/api/predictions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        corpusSummary: request.corpus_summary || request.raw_input || '',
-        userNotes: request.user_notes,
-        preferences: request.preferences,
-      }),
-    });
+    try {
+      const response = await fetch(`${this.syuzhetApiUrl}/api/predictions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          corpusSummary: request.corpus_summary || request.raw_input || '',
+          userNotes: request.user_notes,
+          preferences: request.preferences,
+        }),
+      });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to generate thesis');
+      const contentType = response.headers.get('content-type');
+      if (response.ok && contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        const prediction: GeneratedPrediction = data.prediction;
+        
+        return {
+          hypothesis: prediction.thesis,
+          probability: prediction.suggestedProbability * 100, // Convert to percentage
+          parameters: {
+            timeframe: prediction.timeHorizon,
+            targetPrice: prediction.parameters.initialYesPrice,
+            confidence: prediction.suggestedProbability,
+            reasoning: prediction.reasoningBullets.join('; '),
+          },
+          generatedBy: 'ai',
+          rawInput: request.raw_input || request.corpus_summary,
+        };
+      }
+    } catch (error) {
+      console.warn('Syuzhet API also failed, using fallback hypothesis:', error);
     }
 
-    const data = await response.json();
-    const prediction: GeneratedPrediction = data.prediction;
+    // Final fallback: Generate a basic hypothesis from raw input
+    return this.generateFallbackThesis(request);
+  }
+
+  private generateFallbackThesis(request: ThesisGenerationRequest): SignalThesis {
+    const rawInput = request.raw_input || request.corpus_summary || '';
     
+    // Extract key information from raw input
+    const sentences = rawInput.split(/[.!?]+/).filter(s => s.trim().length > 10);
+    const keyPoints = sentences.slice(0, 3).map(s => s.trim());
+    
+    // Generate a structured hypothesis
+    const hypothesis = keyPoints.length > 0
+      ? `Based on the provided information: ${keyPoints.join('. ')}. This suggests potential market movement that warrants signal creation.`
+      : `Signal hypothesis based on: ${rawInput.substring(0, 200)}${rawInput.length > 200 ? '...' : ''}`;
+
     return {
-      hypothesis: prediction.thesis,
-      probability: prediction.suggestedProbability * 100, // Convert to percentage
+      hypothesis,
+      probability: 65, // Default confidence
       parameters: {
-        timeframe: prediction.timeHorizon,
-        targetPrice: prediction.parameters.initialYesPrice,
-        confidence: prediction.suggestedProbability,
-        reasoning: prediction.reasoningBullets.join('; '),
+        timeframe: request.preferences?.timeHorizon || '30 days',
+        targetPrice: 0.5,
+        confidence: 0.65,
+        reasoning: 'Generated from provided input using fallback method. Backend services unavailable.',
       },
       generatedBy: 'ai',
-      rawInput: request.raw_input || request.corpus_summary,
+      rawInput,
     };
   }
 }

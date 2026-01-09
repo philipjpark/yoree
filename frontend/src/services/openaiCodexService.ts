@@ -58,9 +58,7 @@ class OpenAICodexService {
     // Use environment variable only
     this.apiKey = process.env.REACT_APP_OPENAI_API_KEY || '';
     
-    console.log('🔍 Environment variable present:', !!this.apiKey);
-    console.log('🔍 Environment key length:', this.apiKey?.length || 0);
-    console.log('🔑 API Key loaded:', this.apiKey ? this.apiKey.substring(0, 20) + '...' : 'None');
+    // API key loaded (not logging for security)
     
     if (!this.apiKey) {
       console.error('❌ No OpenAI API key found!');
@@ -77,7 +75,7 @@ class OpenAICodexService {
   async generateStrategy(request: CodexStrategyRequest): Promise<CodexStrategyResponse> {
     console.log('🎯 Codex Service: Starting strategy generation...');
     console.log('🔧 Model Type: codex');
-    console.log('🔑 API Key present:', !!this.apiKey);
+    // API key present (not logging for security)
     console.log('📊 Request data:', request);
 
     try {
@@ -139,7 +137,6 @@ class OpenAICodexService {
 
       if (error.response?.status === 401) {
         console.error('❌ 401 Unauthorized - API Key Issue');
-        console.error('🔑 API Key being used:', this.apiKey.substring(0, 20) + '...');
         console.error('📊 Full error response:', error.response?.data);
         throw new Error(`OpenAI API key is invalid or expired. Status: ${error.response?.status}. Please check your API key.`);
       } else if (error.response?.status === 429) {

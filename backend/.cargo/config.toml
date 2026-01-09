@@ -1,0 +1,10 @@
+# Cargo configuration
+# This file can help with dependency resolution issues
+
+[net]
+# Retry configuration for network issues
+retry = 3
+
+[registry]
+# Use default registry
+default = "crates-io"

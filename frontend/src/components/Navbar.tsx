@@ -19,7 +19,8 @@ import {
   DataObject as DataObjectIcon,
   AccountBalance as ExchangeIcon,
   LightMode as LightModeIcon,
-  DarkMode as DarkModeIcon
+  DarkMode as DarkModeIcon,
+  Groups as CommunityIcon
 } from '@mui/icons-material';
 import { IconButton, useTheme as useMuiTheme } from '@mui/material';
 import { useTheme } from '../contexts/ThemeContext';
@@ -60,6 +61,12 @@ const Navbar: React.FC = () => {
       label: 'Data Feeds',
       icon: <DataObjectIcon sx={{ fontSize: 20 }} />,
       badge: null
+    },
+    {
+      path: '/community',
+      label: 'Community',
+      icon: <CommunityIcon sx={{ fontSize: 20 }} />,
+      badge: null
     }
   ];
 
@@ -69,10 +76,16 @@ const Navbar: React.FC = () => {
     <AppBar 
       position="static"
       sx={{
-        background: 'linear-gradient(135deg, #0A0E27 0%, #1A1F3A 100%)',
+        background: theme.palette.mode === 'dark'
+          ? 'linear-gradient(135deg, #0A0E27 0%, #1A1F3A 100%)'
+          : 'linear-gradient(135deg, #ffffff 0%, #f5f7fa 100%)',
         backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(102, 126, 234, 0.2)',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+        borderBottom: theme.palette.mode === 'dark'
+          ? '1px solid rgba(102, 126, 234, 0.2)'
+          : '1px solid rgba(0, 0, 0, 0.1)',
+        boxShadow: theme.palette.mode === 'dark'
+          ? '0 4px 20px rgba(0, 0, 0, 0.3)'
+          : '0 4px 20px rgba(0, 0, 0, 0.1)'
       }}
     >
       <Container maxWidth="xl">
@@ -113,7 +126,9 @@ const Navbar: React.FC = () => {
                   sx={{
                     fontFamily: '"Inter", sans-serif',
                     fontWeight: 800,
-                    background: 'linear-gradient(45deg, #ffffff 0%, #E2E8F0 100%)',
+                    background: theme.palette.mode === 'dark'
+                      ? 'linear-gradient(45deg, #ffffff 0%, #E2E8F0 100%)'
+                      : 'linear-gradient(45deg, #2C3E50 0%, #34495e 100%)',
                     backgroundClip: 'text',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
@@ -212,11 +227,20 @@ const Navbar: React.FC = () => {
             <IconButton
               onClick={toggleMode}
               sx={{
-                color: 'white',
+                color: mode === 'dark' 
+                  ? theme.palette.text.primary 
+                  : '#2C3E50', // Darker color for moon icon in light mode
                 mr: 2,
+                backgroundColor: mode === 'dark'
+                  ? 'rgba(255, 255, 255, 0.1)'
+                  : 'rgba(0, 0, 0, 0.05)',
                 '&:hover': {
-                  background: 'rgba(255, 255, 255, 0.1)',
-                }
+                  background: mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.15)'
+                    : 'rgba(0, 0, 0, 0.1)',
+                  transform: 'scale(1.1)',
+                },
+                transition: 'all 0.3s ease',
               }}
             >
               {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}

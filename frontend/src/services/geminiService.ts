@@ -381,10 +381,6 @@ Format the response as a code block.
 
   async testConnection(): Promise<boolean> {
     try {
-      console.log('=== GEMINI API DEBUG TEST ===');
-      console.log('API Key (first 10 chars):', this.apiKey.substring(0, 10) + '...');
-      console.log('Base URL:', this.baseUrl);
-      
       const testPrompt = "Say 'Hello, API test successful!' if you can read this message.";
       
       const requestBody = {
@@ -396,9 +392,6 @@ Format the response as a code block.
           maxOutputTokens: 50,
         }
       };
-
-      console.log('Request URL:', `${this.baseUrl}?key=${this.apiKey.substring(0, 10)}...`);
-      console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
       const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
         method: 'POST',
