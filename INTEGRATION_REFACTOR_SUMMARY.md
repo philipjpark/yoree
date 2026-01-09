@@ -1,4 +1,4 @@
-# Yoree Signal Markets - Integration Refactor Summary
+# Yoree Signals Market - Integration Refactor Summary
 
 ## Overview
 

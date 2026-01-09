@@ -1,4 +1,4 @@
-// Signal Types for Yoree Signal Markets
+// Signal Types for Yoree Signals Market
 
 export interface Signal {
   id: string;

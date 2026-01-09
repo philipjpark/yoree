@@ -1,4 +1,4 @@
-// Signal service for Yoree Signal Markets
+// Signal service for Yoree Signals Market
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;

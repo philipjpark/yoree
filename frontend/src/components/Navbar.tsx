@@ -136,7 +136,7 @@ const Navbar: React.FC = () => {
                     fontSize: '1.1rem'
                   }}
                 >
-                  YOREE SIGNAL MARKETS
+                  YOREE SIGNALS MARKET
                 </Typography>
                 <Typography
                   variant="caption"
