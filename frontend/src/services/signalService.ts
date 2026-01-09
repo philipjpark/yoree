@@ -1,4 +1,4 @@
-// Signal service for Yoree Signal Markets
+// Signal service for Yoree Signals Market
 import { Signal, SignalCreationRequest, SignalUpdateRequest, SignalMarket, SignalPerformanceHistory, SignalThesis, MinamFeed, ScoringWeights } from '../types/signal';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:3001';

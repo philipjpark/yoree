@@ -20,7 +20,7 @@
 - **🥈 2025 Permissionless IV Hackathon** – 2nd Place Winner
 - **🎤 Live Demo Selectee to BNB Chain Community** - July 2025
 
-> <span style="color:gray;"><i>Originally built as <b>Bibim</b> – now evolved into <b>Yoree Signal Markets</b> with major updates.</i></span>
+> <span style="color:gray;"><i>Originally built as <b>Bibim</b> – now evolved into <b>Yoree Signals Market</b> with major updates.</i></span>
 
 ## 📱 Connect With Us
 
@@ -28,9 +28,9 @@
 
 ---
 
-## 🌟 What is Yoree Signal Markets?
+## 🌟 What is Yoree Signals Market?
 
-Yoree Signal Markets is the **first signal-driven intelligence exchange** where signals automatically discover and connect to related assets across all asset classes. Unlike traditional platforms where you search for assets, Yoree starts with your signal hypothesis and automatically surfaces related crypto, stocks, futures, forex, predictions, ETFs, and more—all in one unified view.
+Yoree Signals Market is the **first signal-driven intelligence exchange** where signals automatically discover and connect to related assets across all asset classes. Unlike traditional platforms where you search for assets, Yoree starts with your signal hypothesis and automatically surfaces related crypto, stocks, futures, forex, predictions, ETFs, and more—all in one unified view.
 
 ### 🚀 Revolutionary Signal-First Workflow
 
@@ -105,7 +105,7 @@ All of this is presented in one unified interface, allowing you to quickly asses
 
 ## 🔗 Integrated Components
 
-Yoree Signal Markets seamlessly integrates two powerful open-source projects:
+Yoree Signals Market seamlessly integrates two powerful open-source projects:
 
 ### 📊 [Minam 미남](https://github.com/philipjpark/minam) - The Data Layer
 
@@ -283,7 +283,7 @@ Market Price Evolution
 
 ```
 yoree/
-├── frontend/                    # React frontend (Yoree Signal Markets)
+├── frontend/                    # React frontend (Yoree Signals Market)
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── signals/        # Signal creation and trading components
@@ -669,7 +669,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**YOREE SIGNAL MARKETS - An Intelligence Exchange where traders can start cooking signals as assets.** 🥄
+**YOREE SIGNALS MARKET - An Intelligence Exchange where traders can start cooking signals as assets.** 🥄
 
 *Powered by [Minam](https://github.com/philipjpark/minam) and [Syuzhet](https://github.com/philipjpark/syuzhet)*
 
