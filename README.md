@@ -1,4 +1,4 @@
-# <img src="./frontend/src/assets/images/yoree_logo.png" alt="Yoree Logo" width="32" height="32" style="vertical-align: middle;"> YOREE SIGNAL MARKETS - The Intelligence Exchange
+# <img src="./frontend/src/assets/images/yoree_logo.png" alt="Yoree Logo" width="32" height="32" style="vertical-align: middle;"> YOREE SIGNALS MARKET - The Intelligence Exchange
 
 <div align="center">
 
