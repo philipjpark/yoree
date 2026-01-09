@@ -701,6 +701,74 @@ const SignalCreationWizard: React.FC = () => {
                 </Card>
               </Grid>
             </Grid>
+
+            {/* Asset Branch Preview */}
+            <Box sx={{ mt: 4 }}>
+              <Card
+                sx={{
+                  p: 3,
+                  borderRadius: '16px',
+                  background: theme.palette.mode === 'dark'
+                    ? 'rgba(26, 31, 58, 0.6)'
+                    : 'rgba(255, 255, 255, 0.8)',
+                  border: `1px solid ${theme.palette.divider}`,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <ChartIcon sx={{ color: theme.palette.primary.main }} />
+                  <Typography variant="h6" sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>
+                    Asset Discovery Preview
+                  </Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Once your signal is created, Yoree will automatically discover related assets across all asset classes:
+                </Typography>
+                <Grid container spacing={2}>
+                  {[
+                    { name: 'Crypto', icon: '₿', color: '#F7931A', count: underlyingAsset.toLowerCase().includes('eth') || underlyingAsset.toLowerCase().includes('crypto') ? 3 : 1 },
+                    { name: 'Stocks', icon: '📈', color: '#00C853', count: underlyingAsset.toLowerCase().includes('oil') || underlyingAsset.toLowerCase().includes('venezuela') ? 2 : 0 },
+                    { name: 'Futures', icon: '📊', color: '#2196F3', count: underlyingAsset.toLowerCase().includes('oil') ? 1 : 0 },
+                    { name: 'Forex', icon: '💱', color: '#9C27B0', count: 0 },
+                    { name: 'Predictions', icon: '🔮', color: '#FF9800', count: underlyingAsset.toLowerCase().includes('oil') || underlyingAsset.toLowerCase().includes('venezuela') ? 1 : 0 },
+                    { name: 'ETFs', icon: '📦', color: '#00BCD4', count: underlyingAsset.toLowerCase().includes('oil') ? 1 : 0 },
+                    { name: 'Bonds', icon: '💵', color: '#4CAF50', count: 0 },
+                    { name: 'Commodities', icon: '⚡', color: '#FF5722', count: underlyingAsset.toLowerCase().includes('oil') ? 1 : 0 },
+                  ].map((assetClass) => (
+                    <Grid item xs={6} sm={4} md={3} key={assetClass.name}>
+                      <Box
+                        sx={{
+                          p: 2,
+                          borderRadius: '12px',
+                          background: assetClass.count > 0
+                            ? `${assetClass.color}20`
+                            : theme.palette.mode === 'dark'
+                            ? 'rgba(255, 255, 255, 0.05)'
+                            : 'rgba(0, 0, 0, 0.02)',
+                          border: `1px solid ${assetClass.count > 0 ? assetClass.color : theme.palette.divider}`,
+                          textAlign: 'center',
+                          opacity: assetClass.count > 0 ? 1 : 0.5,
+                        }}
+                      >
+                        <Typography variant="h5" sx={{ mb: 0.5 }}>
+                          {assetClass.icon}
+                        </Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>
+                          {assetClass.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {assetClass.count > 0 ? `${assetClass.count} asset${assetClass.count !== 1 ? 's' : ''}` : 'Auto-discover'}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+                <Alert severity="info" sx={{ mt: 2, borderRadius: '12px' }}>
+                  <Typography variant="body2">
+                    <strong>How it works:</strong> Yoree analyzes your signal and automatically discovers related assets across crypto, stocks, futures, forex, predictions, ETFs, bonds, and commodities. Connect your exchange accounts to trade these assets directly from the platform.
+                  </Typography>
+                </Alert>
+              </Card>
+            </Box>
           </Box>
         );
 

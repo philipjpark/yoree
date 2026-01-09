@@ -13,6 +13,8 @@ export interface Signal {
   status: 'active' | 'deprecated' | 'archived';
   createdAt: string;
   updatedAt: string;
+  assetBranches?: AssetBranches; // Cross-asset class discovery
+  validationSources?: ValidationSource[]; // Validation/invalidation sources
 }
 
 export interface SignalDataBinding {
@@ -158,4 +160,73 @@ export interface SignalUpdateRequest {
   feed2Id?: string;
   strategy?: StrategyLogic;
   scoringWeights?: ScoringWeights;
+}
+
+// Asset Branch Types - Cross-Asset Class Discovery
+export type AssetClass = 'crypto' | 'stocks' | 'futures' | 'forex' | 'predictions' | 'etfs' | 'bonds' | 'commodities';
+
+export interface RelatedAsset {
+  id: string;
+  symbol: string;
+  name: string;
+  assetClass: AssetClass;
+  exchange: string;
+  currentPrice: number;
+  priceChange24h: number;
+  volume24h: number;
+  relevanceScore: number; // How relevant to the signal (0-100)
+  connectionStatus: 'available' | 'connected' | 'not_available';
+  exchangeAccountId?: string; // If user has connected account
+}
+
+export interface AssetBranches {
+  crypto: RelatedAsset[];
+  stocks: RelatedAsset[];
+  futures: RelatedAsset[];
+  forex: RelatedAsset[];
+  predictions: RelatedAsset[];
+  etfs: RelatedAsset[];
+  bonds: RelatedAsset[];
+  commodities: RelatedAsset[];
+}
+
+export interface ExchangeConnection {
+  exchangeId: string;
+  exchangeName: string;
+  assetClasses: AssetClass[];
+  connectionStatus: 'not_connected' | 'connecting' | 'connected' | 'error';
+  accountId?: string;
+  lastSync?: string;
+  apiKey?: string; // Encrypted
+}
+
+// Validation Source Types
+export type ValidationSourceType = 
+  | 'google_trends' 
+  | 'twitter' 
+  | 'reddit' 
+  | 'youtube' 
+  | 'discord' 
+  | 'telegram' 
+  | 'news' 
+  | 'onchain' 
+  | 'opec' 
+  | 'eia' 
+  | 'bloomberg' 
+  | 'reuters';
+
+export interface ValidationSource {
+  id: string;
+  type: ValidationSourceType;
+  name: string;
+  description: string;
+  url?: string;
+  data?: {
+    sentiment?: 'bullish' | 'bearish' | 'neutral';
+    score?: number; // 0-100
+    trend?: 'up' | 'down' | 'stable';
+    volume?: number;
+    lastUpdate?: string;
+  };
+  isConnected: boolean;
 }
