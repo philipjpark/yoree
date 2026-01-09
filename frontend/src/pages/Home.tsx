@@ -30,7 +30,8 @@ import {
   ArrowForward as ArrowForwardIcon,
   FlashOn as FlashIcon,
   Speed as SpeedIcon,
-  Security as SecurityIcon
+  Security as SecurityIcon,
+  Apps as AppsIcon
 } from '@mui/icons-material';
 import { useTheme } from '../contexts/ThemeContext';
 import yoreeLogo from '../assets/images/yoree_logo.png';
@@ -252,7 +253,7 @@ const Home: React.FC = () => {
                 transition={{ duration: 0.8 }}
               >
                 <Box sx={{ textAlign: { xs: 'center', md: 'left' } }}>
-                  <Stack direction="row" spacing={2} justifyContent={{ xs: 'center', md: 'flex-start' }} sx={{ mb: 3 }}>
+                  <Stack direction="row" spacing={2} justifyContent={{ xs: 'center', md: 'flex-start' }} sx={{ mb: 3, flexWrap: 'wrap' }}>
                     <Chip
                   label="Live Trading"
                   icon={<FlashIcon />}
@@ -269,6 +270,16 @@ const Home: React.FC = () => {
                       sx={{ 
                     background: 'linear-gradient(135deg, #00D4FF 0%, #00A8CC 100%)',
                     color: '#0A0E27',
+                    fontWeight: 700,
+                        fontSize: '0.9rem'
+                      }}
+                    />
+                    <Chip
+                  label="Omnichannel"
+                  icon={<AppsIcon />}
+                      sx={{ 
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: '#FFFFFF',
                     fontWeight: 700,
                         fontSize: '0.9rem'
                       }}

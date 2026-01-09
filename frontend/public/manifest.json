@@ -1,15 +1,20 @@
 {
-  "short_name": "Yoree Trading",
-  "name": "Yoree - AI Crypto Trading Platform",
+  "short_name": "IEX",
+  "name": "Yoree - Intelligence Exchange (IEX)",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "yoree-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "yoree-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#00FF88",
+  "background_color": "#0A0E27"
 } 
