@@ -651,9 +651,20 @@ cargo test
 
 ### Documentation
 - 🍚 [YOREE Slides.pdf](./frontend/public/slides/Yoree%20Slides.pdf)
-- 🎥 [YOREE Demo Video](https://youtu.be/iaypenjVwiQ)
 - 📖 [Minam Documentation](https://github.com/philipjpark/minam#readme)
 - 📖 [Syuzhet Documentation](https://github.com/philipjpark/syuzhet#readme)
+
+### 🎬 Live Demo
+
+<div align="center">
+
+[![Yoree Signal Markets Live Demo](https://img.youtube.com/vi/H3kxrSkkpbg/maxresdefault.jpg)](https://www.youtube.com/watch?v=H3kxrSkkpbg)
+
+*Click the image above to watch the live demo*
+
+*Long-form demo coming soon!*
+
+</div>
 
 ### Blockchain Networks
 - [BNB Chain Documentation](https://docs.bnbchain.org)
