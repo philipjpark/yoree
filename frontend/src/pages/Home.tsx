@@ -56,7 +56,7 @@ const Home: React.FC = () => {
   const [logoIndex, setLogoIndex] = useState(0);
 
   const logos = [
-    { src: yoreeLogo, alt: 'Yoree Signal Markets', name: 'Yoree', link: '/signal-markets' },
+    { src: yoreeLogo, alt: 'Yoree Signals Market', name: 'Yoree', link: '/signal-markets' },
     { src: minamLogo, alt: 'Minam Data Feeds', name: 'Minam', link: '/data-feeds' },
     { src: syuzhetLogo, alt: 'Syuzhet Predictions', name: 'Syuzhet', link: '/create-signal' }
   ];
@@ -301,7 +301,7 @@ const Home: React.FC = () => {
                       letterSpacing: '-0.02em'
                     }}
                   >
-                YOREE SIGNAL MARKETS
+                YOREE SIGNALS MARKET
                   </Typography>
                   
                   <Typography 

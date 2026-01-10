@@ -49,21 +49,60 @@ export class SignalService {
       
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
-        // Backend not available, return mock data silently
-        console.warn('Backend not available, using mock signals');
-        return this.getMockSignals();
+        // Backend not available, get signals from localStorage and combine with mock
+        return this.getSignalsFromStorage();
       }
 
       if (!response.ok) {
-        // Backend error, return mock data silently
-        console.warn('Backend error, using mock signals');
-        return this.getMockSignals();
+        // Backend error, get signals from localStorage and combine with mock
+        return this.getSignalsFromStorage();
       }
 
-      return response.json();
+      const backendSignals = await response.json();
+      // Merge with localStorage signals
+      const storageSignals = this.getSignalsFromStorage();
+      const allSignals = [...backendSignals, ...storageSignals];
+      // Remove duplicates by ID
+      const uniqueSignals = Array.from(
+        new Map(allSignals.map(signal => [signal.id, signal])).values()
+      );
+      return uniqueSignals;
     } catch (error: any) {
-      // Backend not available, return mock data silently
-      console.warn('Backend not available, using mock signals');
+      // Backend not available, get signals from localStorage and combine with mock
+      return this.getSignalsFromStorage();
+    }
+  }
+
+  private getSignalsFromStorage(): Signal[] {
+    try {
+      // Get signals from portfolio storage
+      const portfolioSignals = JSON.parse(localStorage.getItem('yoree_portfolio_signals') || '[]');
+      const storageSignals = portfolioSignals
+        .map((item: any) => item.signal)
+        .filter((signal: Signal) => signal && signal.status === 'active');
+
+      // Get signals from active signals storage (if exists)
+      const activeSignals = JSON.parse(localStorage.getItem('yoree_active_signals') || '[]');
+      const allStorageSignals = [...storageSignals, ...activeSignals];
+
+      // Remove duplicates by ID
+      const uniqueStorageSignals = Array.from(
+        new Map(allStorageSignals.map((signal: Signal) => [signal.id, signal])).values()
+      );
+
+      // Combine with mock signals if we have any storage signals, otherwise return mock
+      if (uniqueStorageSignals.length > 0) {
+        const mockSignals = this.getMockSignals();
+        const allSignals = [...uniqueStorageSignals, ...mockSignals];
+        // Remove duplicates
+        return Array.from(
+          new Map(allSignals.map(signal => [signal.id, signal])).values()
+        );
+      }
+
+      return this.getMockSignals();
+    } catch (error) {
+      console.warn('Error reading signals from storage:', error);
       return this.getMockSignals();
     }
   }
