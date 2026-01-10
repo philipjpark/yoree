@@ -16,8 +16,9 @@
 
 ## 🏆 Awards & Recognition
 
+- **🚀 Launching on the BNB Chain in Q1 2026** [![BNB Chain](https://img.shields.io/badge/BNB%20Chain-F3BA2F?style=flat&logo=binance&logoColor=white)](https://www.bnbchain.org)
+- **🥈 2025 Blockworks Permissionless IV Hackathon** – 2nd Place Winner
 - **🏆 NYC AI Tinkerers Agentic AI App Hackathon with Google Cloud Run GPUs** - Featured Finalist
-- **🥈 2025 Permissionless IV Hackathon** – 2nd Place Winner
 - **🎤 Live Demo Selectee to BNB Chain Community** - July 2025
 
 > <span style="color:gray;"><i>Originally built as <b>Bibim</b> – now evolved into <b>Yoree Signals Market</b> with major updates.</i></span>

@@ -20,11 +20,14 @@ import {
   Tabs,
   Tab,
   Divider,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { signalService } from '../../services';
 import { Signal, SignalMarket as SignalMarketType, AssetBranches, ValidationSource } from '../../types/signal';
 import AssetBranchesComponent from './AssetBranches';
@@ -45,6 +48,24 @@ const SignalMarket: React.FC = () => {
 
   useEffect(() => {
     loadSignals();
+  }, []);
+
+  // Listen for storage changes to update signals list when new signals are created
+  useEffect(() => {
+    const handleStorageChange = () => {
+      loadSignals();
+    };
+
+    // Listen for storage events (from other tabs/windows)
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for custom event we'll dispatch when signal is created
+    window.addEventListener('signalCreated', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('signalCreated', handleStorageChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -106,6 +127,38 @@ const SignalMarket: React.FC = () => {
         totalShares: 1000000,
         createdAt: new Date().toISOString(),
       });
+    }
+  };
+
+  const handleDeleteSignal = async (signalId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent card click from triggering
+    
+    if (!window.confirm('Are you sure you want to delete this signal? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Remove from active signals list
+      const activeSignals = JSON.parse(localStorage.getItem('yoree_active_signals') || '[]');
+      const updatedActiveSignals = activeSignals.filter((s: Signal) => s.id !== signalId);
+      localStorage.setItem('yoree_active_signals', JSON.stringify(updatedActiveSignals));
+
+      // Also remove from portfolio signals if present
+      const portfolioSignals = JSON.parse(localStorage.getItem('yoree_portfolio_signals') || '[]');
+      const updatedPortfolioSignals = portfolioSignals.filter((item: any) => item.signal?.id !== signalId);
+      localStorage.setItem('yoree_portfolio_signals', JSON.stringify(updatedPortfolioSignals));
+
+      // If this was the selected signal, clear selection
+      if (selectedSignal?.id === signalId) {
+        setSelectedSignal(null);
+        setMarketData(null);
+      }
+
+      // Reload signals list
+      loadSignals();
+    } catch (error) {
+      console.error('Failed to delete signal:', error);
+      alert('Failed to delete signal. Please try again.');
     }
   };
 
@@ -478,18 +531,34 @@ const SignalMarket: React.FC = () => {
                       }}
                     >
                       <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                          <Typography variant="h6" sx={{ fontWeight: 'bold', flex: 1 }}>
                             {signal.underlyingAsset}
                           </Typography>
-                          <Chip
-                            label={signal.creator.type === 'agent' ? '🤖 Agent' : '👤 Human'}
-                            size="small"
-                            sx={{
-                              backgroundColor: signal.creator.type === 'agent' ? '#667eea20' : '#00FF8820',
-                              color: signal.creator.type === 'agent' ? '#667eea' : '#00FF88',
-                            }}
-                          />
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip
+                              label={signal.creator.type === 'agent' ? '🤖 Agent' : '👤 Human'}
+                              size="small"
+                              sx={{
+                                backgroundColor: signal.creator.type === 'agent' ? '#667eea20' : '#00FF8820',
+                                color: signal.creator.type === 'agent' ? '#667eea' : '#00FF88',
+                              }}
+                            />
+                            <Tooltip title="Delete Signal">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => handleDeleteSignal(signal.id, e)}
+                                sx={{
+                                  color: theme.palette.error.main,
+                                  '&:hover': {
+                                    backgroundColor: theme.palette.error.main + '20',
+                                  },
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
                         </Box>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 2, minHeight: 40 }}>
                           {signal.hypothesis.substring(0, 100)}...

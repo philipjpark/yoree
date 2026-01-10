@@ -205,14 +205,26 @@ const SignalCreationWizard: React.FC = () => {
       setCreatedSignal(result.signal);
       setSuccess(true);
       
-      // Automatically add to portfolio (localStorage for now)
+      // Automatically add to portfolio and active signals list (localStorage for now)
       try {
+        // Add to portfolio
         const portfolioSignals = JSON.parse(localStorage.getItem('yoree_portfolio_signals') || '[]');
         portfolioSignals.push({
           signal: result.signal,
           addedAt: new Date().toISOString(),
         });
         localStorage.setItem('yoree_portfolio_signals', JSON.stringify(portfolioSignals));
+
+        // Add to active signals list for markets page
+        const activeSignals = JSON.parse(localStorage.getItem('yoree_active_signals') || '[]');
+        // Check if signal already exists
+        const existingIndex = activeSignals.findIndex((s: Signal) => s.id === result.signal.id);
+        if (existingIndex >= 0) {
+          activeSignals[existingIndex] = result.signal; // Update existing
+        } else {
+          activeSignals.push(result.signal); // Add new
+        }
+        localStorage.setItem('yoree_active_signals', JSON.stringify(activeSignals));
       } catch (e) {
         console.warn('Failed to save to portfolio:', e);
       }
@@ -253,14 +265,29 @@ const SignalCreationWizard: React.FC = () => {
       setCreatedSignal(signal);
       setSuccess(true);
       
-      // Automatically add to portfolio (localStorage for now)
+      // Automatically add to portfolio and active signals list (localStorage for now)
       try {
+        // Add to portfolio
         const portfolioSignals = JSON.parse(localStorage.getItem('yoree_portfolio_signals') || '[]');
         portfolioSignals.push({
           signal: signal,
           addedAt: new Date().toISOString(),
         });
         localStorage.setItem('yoree_portfolio_signals', JSON.stringify(portfolioSignals));
+
+        // Add to active signals list for markets page
+        const activeSignals = JSON.parse(localStorage.getItem('yoree_active_signals') || '[]');
+        // Check if signal already exists
+        const existingIndex = activeSignals.findIndex((s: Signal) => s.id === signal.id);
+        if (existingIndex >= 0) {
+          activeSignals[existingIndex] = signal; // Update existing
+        } else {
+          activeSignals.push(signal); // Add new
+        }
+        localStorage.setItem('yoree_active_signals', JSON.stringify(activeSignals));
+        
+        // Dispatch event to notify markets page to refresh
+        window.dispatchEvent(new Event('signalCreated'));
       } catch (e) {
         console.warn('Failed to save to portfolio:', e);
       }
