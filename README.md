@@ -650,7 +650,7 @@ cargo test
 - **[Syuzhet](https://github.com/philipjpark/syuzhet)** - Narrative prediction markets
 
 ### Documentation
-- 🍚 [YOREE Slides.pdf](./frontend/public/slides/Yoree%20Slides.pdf)
+- 🍚 [Yoree Slides.pdf](./frontend/public/slides/Yoree%20Slides.pdf) (July 2025 Version)
 - 📖 [Minam Documentation](https://github.com/philipjpark/minam#readme)
 - 📖 [Syuzhet Documentation](https://github.com/philipjpark/syuzhet#readme)
 
