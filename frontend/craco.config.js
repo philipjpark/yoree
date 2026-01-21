@@ -25,6 +25,7 @@ module.exports = {
         ...webpackConfig.resolve.alias,
         '@toruslabs/eccrypto': false,
         'process/browser': require.resolve('process/browser'),
+        'process/browser.js': require.resolve('process/browser'),
         'process': require.resolve('process/browser'),
       };
       
