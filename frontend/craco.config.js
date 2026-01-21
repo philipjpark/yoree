@@ -32,27 +32,18 @@ module.exports = {
       // Ensure plugins array exists and add ProvidePlugin if not already present
       webpackConfig.plugins = webpackConfig.plugins || [];
       
-      // Check if ProvidePlugin already exists, if not add it
-      const hasProvidePlugin = webpackConfig.plugins.some(
-        plugin => plugin instanceof webpack.ProvidePlugin
+      // Remove any existing ProvidePlugin to avoid conflicts
+      webpackConfig.plugins = webpackConfig.plugins.filter(
+        plugin => !(plugin instanceof webpack.ProvidePlugin)
       );
       
-      if (!hasProvidePlugin) {
-        webpackConfig.plugins.push(
-          new webpack.ProvidePlugin({
-            Buffer: ['buffer', 'Buffer'],
-            process: 'process/browser',
-          })
-        );
-      } else {
-        // Update existing ProvidePlugin to ensure process is included
-        const providePlugin = webpackConfig.plugins.find(
-          plugin => plugin instanceof webpack.ProvidePlugin
-        );
-        if (providePlugin && !providePlugin.definitions.process) {
-          providePlugin.definitions.process = 'process/browser';
-        }
-      }
+      // Add ProvidePlugin with process and Buffer polyfills
+      webpackConfig.plugins.push(
+        new webpack.ProvidePlugin({
+          Buffer: ['buffer', 'Buffer'],
+          process: 'process/browser',
+        })
+      );
       
       return webpackConfig;
     },
