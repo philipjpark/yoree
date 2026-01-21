@@ -27,13 +27,33 @@ module.exports = {
         'process/browser': require.resolve('process/browser'),
         'process': require.resolve('process/browser'),
       };
+      
+      // Ensure plugins array exists and add ProvidePlugin if not already present
+      webpackConfig.plugins = webpackConfig.plugins || [];
+      
+      // Check if ProvidePlugin already exists, if not add it
+      const hasProvidePlugin = webpackConfig.plugins.some(
+        plugin => plugin instanceof webpack.ProvidePlugin
+      );
+      
+      if (!hasProvidePlugin) {
+        webpackConfig.plugins.push(
+          new webpack.ProvidePlugin({
+            Buffer: ['buffer', 'Buffer'],
+            process: 'process/browser',
+          })
+        );
+      } else {
+        // Update existing ProvidePlugin to ensure process is included
+        const providePlugin = webpackConfig.plugins.find(
+          plugin => plugin instanceof webpack.ProvidePlugin
+        );
+        if (providePlugin && !providePlugin.definitions.process) {
+          providePlugin.definitions.process = 'process/browser';
+        }
+      }
+      
       return webpackConfig;
     },
-    plugins: [
-      new webpack.ProvidePlugin({
-        Buffer: ['buffer', 'Buffer'],
-        process: 'process/browser',
-      }),
-    ],
   },
 }; 
