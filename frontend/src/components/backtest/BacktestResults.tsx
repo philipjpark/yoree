@@ -7,7 +7,6 @@ import {
   Card,
   CardContent,
   LinearProgress,
-  Divider,
 } from '@mui/material';
 import {
   LineChart,

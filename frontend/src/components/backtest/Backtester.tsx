@@ -11,12 +11,10 @@ import {
   LinearProgress,
   IconButton,
   Tooltip,
-  Divider,
   Alert,
   Select,
   MenuItem,
   FormControl,
-  InputLabel
 } from '@mui/material';
 import {
   PlayArrow,
@@ -32,7 +30,7 @@ import {
   FullscreenExit,
   Close
 } from '@mui/icons-material';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface BacktestResult {
   totalReturn: number;
