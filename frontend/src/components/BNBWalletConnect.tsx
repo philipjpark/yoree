@@ -14,10 +14,8 @@ import {
   Avatar,
   Paper
 } from '@mui/material';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  AccountBalanceWallet as WalletIcon,
-  Close as CloseIcon,
   CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
 import bnbService from '../services/bnbService';
