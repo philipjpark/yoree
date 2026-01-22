@@ -32,31 +32,23 @@ module.exports = {
         'process': require.resolve('process/browser'),
       };
       
-      webpackConfig.plugins = webpackConfig.plugins || [];
+      // Remove CRA's ModuleScopePlugin from resolve.plugins
+      // This is the correct location where ModuleScopePlugin is registered
+      if (webpackConfig.resolve && Array.isArray(webpackConfig.resolve.plugins)) {
+        webpackConfig.resolve.plugins = webpackConfig.resolve.plugins.filter(
+          (plugin) => !(plugin && plugin.constructor && plugin.constructor.name === 'ModuleScopePlugin')
+        );
+      }
       
-      // Add a custom plugin that intercepts module resolution before ModuleScopePlugin
-      // This converts absolute paths to process/browser.js to use the package name
-      const processBrowserPath = require.resolve('process/browser');
-      const processInterceptorPlugin = {
-        apply: (compiler) => {
-          compiler.hooks.normalModuleFactory.tap('ProcessBrowserInterceptor', (nmf) => {
-            nmf.hooks.beforeResolve.tap('ProcessBrowserInterceptor', (data) => {
-              if (data && data.request) {
-                // Check if the request is an absolute path to process/browser.js
-                if (data.request.includes('process/browser.js') || 
-                    data.request.includes('process/browser')) {
-                  // Replace with package name to avoid absolute path issues
-                  if (data.request.includes('/node_modules/process/browser.js') ||
-                      data.request.endsWith('/process/browser.js')) {
-                    data.request = 'process/browser';
-                  }
-                }
-              }
-            });
-          });
+      // Also check in the main plugins array (some versions might put it there)
+      webpackConfig.plugins = webpackConfig.plugins || [];
+      webpackConfig.plugins = webpackConfig.plugins.filter(
+        plugin => {
+          if (!plugin || !plugin.constructor) return true;
+          return plugin.constructor.name !== 'ModuleScopePlugin' &&
+                 !(plugin.appSrcs && Array.isArray(plugin.appSrcs));
         }
-      };
-      webpackConfig.plugins.unshift(processInterceptorPlugin);
+      );
       
       // Use NormalModuleReplacementPlugin to intercept absolute path imports
       // This catches any imports that use absolute paths to process/browser.js
@@ -75,33 +67,6 @@ module.exports = {
           processBrowserPathResolved
         )
       );
-      
-      // Modify ModuleScopePlugin to allow process/browser if it exists
-      const moduleScopePluginIndex = webpackConfig.plugins.findIndex(
-        plugin => {
-          return plugin.constructor && (
-            plugin.constructor.name === 'ModuleScopePlugin' ||
-            (plugin.appSrcs && Array.isArray(plugin.appSrcs))
-          );
-        }
-      );
-      
-      if (moduleScopePluginIndex !== -1) {
-        const originalPlugin = webpackConfig.plugins[moduleScopePluginIndex];
-        const processDir = path.dirname(processBrowserPath);
-        
-        // Patch the plugin's apply method to allow process/browser
-        const originalApply = originalPlugin.apply.bind(originalPlugin);
-        originalPlugin.apply = function(compiler) {
-          // Add process directory to allowed sources
-          if (this.appSrcs && Array.isArray(this.appSrcs)) {
-            if (!this.appSrcs.includes(processDir)) {
-              this.appSrcs = [...this.appSrcs, processDir];
-            }
-          }
-          originalApply(compiler);
-        };
-      }
       
       // Remove any existing ProvidePlugin to avoid conflicts
       webpackConfig.plugins = webpackConfig.plugins.filter(
