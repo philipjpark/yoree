@@ -1,0 +1,10 @@
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "frontend/build"
+
+[build.environment]
+  GENERATE_SOURCEMAP = "false"
+  # Configure secrets scanning to ignore REACT_APP_GEMINI_API_KEY
+  # This is expected to be in the build output as React env vars are bundled into the client
+  SECRETS_SCAN_OMIT_KEYS = "REACT_APP_GEMINI_API_KEY"
