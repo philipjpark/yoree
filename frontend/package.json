@@ -57,6 +57,8 @@
     "@craco/craco": "^7.1.0",
     "@types/node": "^24.0.3",
     "@types/pdf-parse": "^1.1.5",
+    "@types/react": "^19.2.9",
+    "@types/react-dom": "^19.2.3",
     "assert": "^2.1.0",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
