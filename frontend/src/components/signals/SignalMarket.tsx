@@ -85,7 +85,6 @@ const SignalMarket: React.FC = () => {
   const loadSignals = async () => {
     try {
       setLoading(true);
-      setError(null); // Clear any previous errors
       const signalList = await signalService.listSignals();
       const activeSignals = signalList.filter(s => s.status === 'active');
       
@@ -429,7 +428,7 @@ const SignalMarket: React.FC = () => {
 
   const handleTrade = async () => {
     if (!selectedSignal || !tradeAmount) {
-      setError('Please select a signal and enter trade amount');
+      console.warn('Please select a signal and enter trade amount');
       return;
     }
 
