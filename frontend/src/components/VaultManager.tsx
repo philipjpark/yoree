@@ -9,8 +9,7 @@ import {
   Card,
   CardContent,
   Alert,
-  CircularProgress,
-  Chip
+  CircularProgress
 } from '@mui/material';
 import { motion } from 'framer-motion';
 

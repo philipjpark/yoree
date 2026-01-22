@@ -10,7 +10,6 @@ import {
   Chip,
   LinearProgress,
   TextField,
-  Alert,
   CircularProgress,
   Paper,
   Dialog,
@@ -38,7 +37,6 @@ const SignalMarket: React.FC = () => {
   const theme = useTheme();
   const [signals, setSignals] = useState<Signal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedSignal, setSelectedSignal] = useState<Signal | null>(null);
   const [marketData, setMarketData] = useState<SignalMarketType | null>(null);
   const [tradeAmount, setTradeAmount] = useState('');
@@ -48,6 +46,7 @@ const SignalMarket: React.FC = () => {
 
   useEffect(() => {
     loadSignals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Listen for storage changes to update signals list when new signals are created
@@ -66,6 +65,7 @@ const SignalMarket: React.FC = () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('signalCreated', handleStorageChange);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -104,7 +104,6 @@ const SignalMarket: React.FC = () => {
       // Silently use mock data if backend fails
       console.warn('Using mock signals:', err);
       setSignals(getMockSignals());
-      setError(null); // Don't show error to user
     } finally {
       setLoading(false);
     }

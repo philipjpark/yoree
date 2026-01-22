@@ -10,25 +10,19 @@ import {
   Chip,
   Avatar,
   LinearProgress,
-  IconButton,
   Divider,
   Stack,
 } from '@mui/material';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   CheckCircle as CheckIcon,
-  RocketLaunch as RocketIcon,
-  TrendingUp as TrendingUpIcon,
-  Share as ShareIcon,
   Visibility as ViewIcon,
   AccountBalanceWallet as WalletIcon,
   AutoAwesome as SparkleIcon,
-  Celebration as CelebrationIcon,
 } from '@mui/icons-material';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Signal } from '../../types/signal';
 import { useNavigate } from 'react-router-dom';
-import TokenizationFlow, { TokenizationData } from './TokenizationFlow';
 import { Dialog } from '@mui/material';
 
 interface SignalSuccessScreenProps {

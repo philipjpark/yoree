@@ -18,8 +18,6 @@ import {
   Card,
   CardContent,
   Avatar,
-  IconButton,
-  Tooltip,
   useTheme,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,14 +33,12 @@ import {
   ArrowBack as ArrowBackIcon,
   FlashOn as FlashIcon,
   TrendingUp as TrendingUpIcon,
-  Error as ErrorIcon,
 } from '@mui/icons-material';
 import { signalService, syuzhetService } from '../../services';
 import { signalAgentOrchestrator, SignalAgentOrchestrationRequest } from '../../services/signalAgentOrchestrator';
 import { Signal, SignalCreationRequest, MinamFeed, SignalCreator } from '../../types/signal';
 import DataFeedSelector from './DataFeedSelector';
 import AgentIdentifier from './AgentIdentifier';
-import AgentProgressScreen from '../strategy/AgentProgressScreen';
 import SignalSuccessScreen from './SignalSuccessScreen';
 import OrnateAgentProgress from './OrnateAgentProgress';
 import AvatarCreator, { AvatarData } from './AvatarCreator';

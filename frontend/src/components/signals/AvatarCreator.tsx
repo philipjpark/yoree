@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Card,
@@ -10,14 +10,11 @@ import {
   Slider,
   Stack,
   IconButton,
-  Chip,
   TextField,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import {
-  Face as FaceIcon,
   Palette as PaletteIcon,
-  AutoAwesome as SparkleIcon,
   Save as SaveIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
