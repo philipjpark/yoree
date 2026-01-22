@@ -24,28 +24,19 @@ import {
   TableBody,
   TableCell,
   TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  LinearProgress,
-  Stack,
   Avatar,
   Divider,
 } from '@mui/material';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Search as SearchIcon,
-  FilterList as FilterIcon,
   Refresh as RefreshIcon,
   ShowChart as ChartIcon,
   TrendingUp as TrendingUpIcon,
   Psychology as PsychologyIcon,
   DataObject as DataIcon,
   Speed as SpeedIcon,
-  CloudUpload as UploadIcon,
   AddCircle as AddCircleIcon,
-  Visibility as ViewIcon,
-  Code as CodeIcon,
   Api as ApiIcon,
 } from '@mui/icons-material';
 import { useTheme } from '../contexts/ThemeContext';
@@ -138,25 +129,24 @@ const DataFeeds: React.FC = () => {
   const [feeds, setFeeds] = useState<MinamFeed[]>([]);
   const [filteredFeeds, setFilteredFeeds] = useState<MinamFeed[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAssetClass, setSelectedAssetClass] = useState<SignalAssetClass | 'all'>('all');
   const [selectedFeed, setSelectedFeed] = useState<MinamFeed | null>(null);
   const [showFeedDialog, setShowFeedDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
     loadFeeds();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     filterFeeds();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feeds, searchQuery, selectedAssetClass]);
 
   const loadFeeds = async () => {
     try {
       setLoading(true);
-      setError(null);
       const feedList = await minamService.listFeeds();
       setFeeds(feedList.filter(feed => feed.isActive));
     } catch (err: any) {

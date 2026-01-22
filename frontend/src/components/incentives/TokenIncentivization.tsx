@@ -21,9 +21,7 @@ import {
   TableRow,
   LinearProgress,
   Avatar,
-  IconButton,
   Tooltip,
-  Badge,
   Divider
 } from '@mui/material';
 import { motion } from 'framer-motion';
