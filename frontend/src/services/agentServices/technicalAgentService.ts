@@ -88,16 +88,24 @@ export interface TechnicalAgentResponse {
 }
 
 class TechnicalAgentService {
-  private apiKey: string;
+  private apiKey: string | null = null;
   private baseUrl: string = 'https://api.openai.com/v1';
 
   constructor() {
-    this.apiKey = process.env.REACT_APP_OPENAI_API_KEY || '';
+    // Don't throw on construction - lazy load the API key
+  }
+
+  private getApiKey(): string {
+    if (!this.apiKey) {
+      this.apiKey = process.env.REACT_APP_OPENAI_API_KEY || '';
+    }
     
     if (!this.apiKey) {
-      console.error('❌ OpenAI API key not found. Please set REACT_APP_OPENAI_API_KEY in .env file');
-      throw new Error('OpenAI API key is required');
+      console.error('❌ OpenAI API key not found. Please set REACT_APP_OPENAI_API_KEY in your Netlify environment variables.');
+      throw new Error('OpenAI API key is required. Please configure REACT_APP_OPENAI_API_KEY in your Netlify environment variables.');
     }
+    
+    return this.apiKey;
   }
 
   async analyzeTechnical(request: TechnicalAgentRequest): Promise<TechnicalAgentResponse> {
@@ -246,7 +254,7 @@ Generate a comprehensive technical analysis that will be used by other AI agents
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
+            'Authorization': `Bearer ${this.getApiKey()}`,
             'Content-Type': 'application/json'
           }
         }
