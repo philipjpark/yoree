@@ -50,19 +50,23 @@ export interface CodexStrategyResponse {
 }
 
 class OpenAICodexService {
-  private apiKey: string;
+  private apiKey: string | null = null;
   private baseUrl: string = 'https://api.openai.com/v1';
   private model: string = 'gpt-4'; // Using GPT-4 as Codex alternative
 
   constructor() {
-    // Use environment variable only
-    this.apiKey = process.env.REACT_APP_OPENAI_API_KEY || '';
-    
-    // API key loaded (not logging for security)
+    // Don't throw on construction - lazy load the API key
+    // This allows the app to load even if the key isn't set yet
+  }
+
+  private getApiKey(): string {
+    if (!this.apiKey) {
+      this.apiKey = process.env.REACT_APP_OPENAI_API_KEY || '';
+    }
     
     if (!this.apiKey) {
-      console.error('❌ No OpenAI API key found!');
-      throw new Error('OpenAI API key is required');
+      console.error('❌ No OpenAI API key found! Please set REACT_APP_OPENAI_API_KEY in your environment variables.');
+      throw new Error('OpenAI API key is required. Please configure REACT_APP_OPENAI_API_KEY in your Netlify environment variables.');
     }
     
     // Validate API key format
@@ -70,6 +74,8 @@ class OpenAICodexService {
       console.error('❌ Invalid API key format! Should start with "sk-"');
       throw new Error('Invalid API key format');
     }
+    
+    return this.apiKey;
   }
 
   async generateStrategy(request: CodexStrategyRequest): Promise<CodexStrategyResponse> {
@@ -104,7 +110,7 @@ class OpenAICodexService {
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
+            'Authorization': `Bearer ${this.getApiKey()}`,
             'Content-Type': 'application/json'
           }
         }
@@ -353,7 +359,7 @@ Return ONLY valid JSON in this exact format:
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
+            'Authorization': `Bearer ${this.getApiKey()}`,
             'Content-Type': 'application/json'
           }
         }
@@ -409,8 +415,10 @@ Return ONLY valid JSON in this exact format:
   }
 
   async testConnection(): Promise<{ success: boolean; error?: string }> {
-    if (!this.apiKey) {
-      return { success: false, error: 'No API key provided' };
+    try {
+      this.getApiKey();
+    } catch (error: any) {
+      return { success: false, error: error.message || 'No API key provided' };
     }
 
     try {
@@ -429,7 +437,7 @@ Return ONLY valid JSON in this exact format:
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
+            'Authorization': `Bearer ${this.getApiKey()}`,
             'Content-Type': 'application/json'
           }
         }

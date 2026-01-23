@@ -8,3 +8,11 @@
   # Configure secrets scanning to ignore REACT_APP_GEMINI_API_KEY
   # This is expected to be in the build output as React env vars are bundled into the client
   SECRETS_SCAN_OMIT_KEYS = "REACT_APP_GEMINI_API_KEY"
+
+# NOTE: Environment variables must be set in Netlify UI (Site settings > Environment variables)
+# Required variables:
+# - REACT_APP_OPENAI_API_KEY (required for OpenAI Codex service)
+# - REACT_APP_GEMINI_API_KEY (required for Gemini service)
+# - REACT_APP_API_URL (optional, defaults to http://127.0.0.1:3001)
+#
+# After setting environment variables, trigger a new deploy for changes to take effect.
