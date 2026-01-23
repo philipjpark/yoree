@@ -4,7 +4,7 @@
 
 <img src="./frontend/src/assets/images/yoree_logo.png" alt="Yoree Logo" width="200" style="border-radius: 12px; margin-bottom: 20px;">
 
-## The Intelligence Exchange
+## The Intelligence Exchange <span style="font-family: 'Noto Sans KR', sans-serif; font-size: 1.2em; color: #FF6B6B; font-weight: bold;">요리</span>
 
 *Where signals are created, evaluated, and traded as first-class assets*
 
@@ -687,5 +687,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 [![BNB Chain](https://img.shields.io/badge/Powered%20by-BNB%20Chain-yellow)](https://www.bnbchain.org)
 [![Arc](https://img.shields.io/badge/Powered%20by-Arc-blue)](https://docs.arc.network)
+
+---
+
+## 🚀 Try It Out
+
+**[👉 Live Demo: https://yoree.netlify.app/](https://yoree.netlify.app/)**
+
+Wanna start cookin? Here you go. :)
+
+> ⚠️ **Note:** This application is currently in **beta** and is subject to change. Features, UI, and functionality may be updated or modified as development continues.
 
 </div>
