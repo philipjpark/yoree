@@ -660,9 +660,8 @@ cargo test
 
 [![Yoree Signal Markets Live Demo](https://img.youtube.com/vi/H3kxrSkkpbg/maxresdefault.jpg)](https://www.youtube.com/watch?v=H3kxrSkkpbg)
 
-*Click the image above to watch the live demo*
+*Watch the short-form demo. Long-form demo coming soon!*
 
-*Long-form demo coming soon!*
 
 </div>
 
@@ -675,7 +674,7 @@ cargo test
 
 ## 🚀 Try It Out
 
-**[👉 Live Demo: https://yoree.netlify.app/](https://yoree.netlify.app/)**
+**👉 Live Demo:[https://yoree.netlify.app/](https://yoree.netlify.app/)**
 
 Wanna start cookin? Here you go. :)
 
