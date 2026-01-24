@@ -674,7 +674,7 @@ cargo test
 
 ## 🚀 Try It Out
 
-**👉 Live Demo:[https://yoree.netlify.app/](https://yoree.netlify.app/)**
+**👉 Live Demo: [https://yoree.netlify.app/](https://yoree.netlify.app/)**
 
 Wanna start cookin? Here you go. :)
 
