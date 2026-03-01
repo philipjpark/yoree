@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -18,6 +18,7 @@ import {
   Stack,
   Tooltip,
   useMediaQuery,
+  Paper,
 } from '@mui/material';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -34,11 +35,13 @@ import {
     Close as CloseIcon,
     Shield as ShieldIcon,
     ShieldOutlined as ShieldOutlinedIcon,
+    AccountBalanceWallet as WalletIcon,
   } from '@mui/icons-material';
 import { IconButton, useTheme as useMuiTheme } from '@mui/material';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTransactionLayer } from '../contexts/TransactionLayer';
 import MonadWalletConnect from './MonadWalletConnect';
+import monadService from '../services/monadService';
 
 const Navbar: React.FC = () => {
   const location = useLocation();
@@ -48,6 +51,47 @@ const Navbar: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const [mobileOpen, setMobileOpen] = useState(false);
   const isDark = theme.palette.mode === 'dark';
+  const [monBalance, setMonBalance] = useState<string>('0');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Refresh MON balance periodically and on signal creation
+  useEffect(() => {
+    const refreshBalance = async () => {
+      const walletState = monadService.getWalletState();
+      if (walletState.isConnected && walletState.address) {
+        try {
+          setIsRefreshing(true);
+          const balance = await monadService.refreshBalance();
+          setMonBalance(balance);
+        } catch (error) {
+          console.error('Failed to refresh balance:', error);
+        } finally {
+          setIsRefreshing(false);
+        }
+      } else {
+        setMonBalance('0');
+      }
+    };
+
+    // Initial load
+    refreshBalance();
+
+    // Refresh every 10 seconds
+    const interval = setInterval(refreshBalance, 10000);
+
+    // Listen for signal creation events to refresh immediately
+    const handleSignalCreated = () => {
+      setTimeout(refreshBalance, 2000); // Wait 2s for transaction to confirm
+    };
+    window.addEventListener('signalCreated', handleSignalCreated);
+    window.addEventListener('signalRegistered', handleSignalCreated);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('signalCreated', handleSignalCreated);
+      window.removeEventListener('signalRegistered', handleSignalCreated);
+    };
+  }, []);
 
   const navItems = [
     { path: '/pipeline', label: 'Pipeline', icon: <PipelineIcon sx={{ fontSize: 18 }} />, badge: 'NEW' },
@@ -294,6 +338,59 @@ const Navbar: React.FC = () => {
                     cursor: 'default',
                   }}
                 />
+              )}
+
+              {/* MON Balance Display */}
+              {monadService.getWalletState().isConnected && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, delay: 0.33 }}
+                >
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      px: 1.5,
+                      py: 0.6,
+                      borderRadius: '10px',
+                      background: isDark
+                        ? 'linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(16,185,129,0.08) 100%)'
+                        : 'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.05) 100%)',
+                      border: '1px solid rgba(16,185,129,0.2)',
+                      minWidth: { xs: 80, sm: 100 },
+                    }}
+                  >
+                    <WalletIcon sx={{ fontSize: 16, color: '#10b981' }} />
+                    <Box>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 800,
+                          color: '#10b981',
+                          fontSize: { xs: '0.7rem', sm: '0.78rem' },
+                          lineHeight: 1,
+                        }}
+                      >
+                        {isRefreshing ? '...' : parseFloat(monBalance).toFixed(2)}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: '#10b981',
+                          fontSize: '0.55rem',
+                          fontWeight: 700,
+                          opacity: 0.8,
+                          lineHeight: 1,
+                        }}
+                      >
+                        MON
+                      </Typography>
+                    </Box>
+                  </Paper>
+                </motion.div>
               )}
 
               {/* Wallet */}
