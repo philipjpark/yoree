@@ -478,7 +478,7 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com aiplatform.g
 
 ## 📊 Components
 
-### 🤖 AI Agents Powered by Google Cloud & Gemma 3-4B
+### 🤖 AI Agents Powered by Google Cloud: Gemma 3-4B & OpenAI: Gpt-4o
 - **Market Analyzer Agent**: Fetches real-time market data from CoinGecko API for live price, volume, and market cap information
 - **Technical Analyzer Agent**: Analyzes technical indicators (RSI, MACD, moving averages, support/resistance levels) and market patterns
 - **Risk Manager Agent**: Calculates token-specific risk factors, position sizing, and risk management based on volatility and market conditions
@@ -741,7 +741,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **YOREE SIGNALS MARKET - An Intelligence Exchange where traders can start cooking signals as assets.** 🥄
 
-*Powered by [Minam](https://github.com/philipjpark/minam) and [Syuzhet](https://github.com/philipjpark/syuzhet)*
 
 [![Monad](https://img.shields.io/badge/Powered%20by-Monad-green)](https://docs.monad.xyz)
 [![Unlink](https://img.shields.io/badge/Privacy%20by-Unlink-purple)](https://docs.unlink.xyz)
