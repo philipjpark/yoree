@@ -1033,112 +1033,148 @@ const Pipeline: React.FC = () => {
                     )}
                   </AnimatePresence>
 
-                  {/* Default: Brokerage list (when no active signal result) */}
+                  {/* Default: Brokerage list grouped by asset class (when no active signal result) */}
                   {(!activeSignal || isProcessing || isStreaming) && (
                     <>
-                      <Typography variant="overline" sx={{ fontWeight: 800, color: '#f59e0b', mb: 1.5, display: 'block', letterSpacing: '0.1em', fontSize: '0.68rem' }}>
-                        CONNECTED PLATFORMS
-                      </Typography>
-                      <Stack spacing={1} sx={{ mb: 3 }}>
-                        {brokerages.slice(0, 6).map((brokerage) => (
-                          <Paper
-                            key={brokerage.id}
-                            elevation={0}
-                            sx={{
-                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                              p: 1.5, borderRadius: '12px',
-                              background: brokerage.isConnected
-                                ? `${brokerage.color}08`
-                                : isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
-                              border: `1px solid ${brokerage.isConnected ? `${brokerage.color}25` : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}`,
-                              cursor: 'pointer',
-                              transition: 'all 0.25s ease',
-                              '&:hover': { borderColor: brokerage.color, background: `${brokerage.color}08` },
-                            }}
-                            onClick={() => !brokerage.isConnected && handleConnectBrokerage(brokerage.id)}
-                          >
-                            <Stack direction="row" alignItems="center" spacing={1.5}>
-                              <Box sx={{
-                                width: 32, height: 32, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                background: `${brokerage.color}12`, fontSize: '0.95rem',
-                              }}>
-                                {brokerage.icon}
-                              </Box>
-                              <Box>
-                                <Typography variant="body2" sx={{ fontWeight: 650, color: theme.palette.text.primary, fontSize: '0.82rem' }}>
-                                  {brokerage.displayName}
+                      {(() => {
+                        const categoryMeta: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+                          crypto:      { label: 'Crypto',       color: '#f59e0b', icon: <CryptoIcon sx={{ fontSize: 13 }} /> },
+                          stocks:      { label: 'Stocks',       color: '#3b82f6', icon: <ChartIcon sx={{ fontSize: 13 }} /> },
+                          predictions: { label: 'Predictions',  color: '#8b5cf6', icon: <CasinoIcon sx={{ fontSize: 13 }} /> },
+                          sports:      { label: 'Sports',       color: '#10b981', icon: <SportsIcon sx={{ fontSize: 13 }} /> },
+                          defi:        { label: 'DeFi',         color: '#6366f1', icon: <BoltIcon sx={{ fontSize: 13 }} /> },
+                          private:     { label: 'Private',      color: '#a855f7', icon: <LockIcon sx={{ fontSize: 13 }} /> },
+                        };
+                        const grouped: Record<string, typeof brokerages> = {};
+                        brokerages.forEach(b => {
+                          if (!grouped[b.category]) grouped[b.category] = [];
+                          grouped[b.category].push(b);
+                        });
+                        const order = ['crypto', 'stocks', 'predictions', 'sports', 'defi', 'private'];
+                        return order.filter(cat => grouped[cat]?.length).map(cat => {
+                          const meta = categoryMeta[cat];
+                          return (
+                            <Box key={cat} sx={{ mb: 2 }}>
+                              <Stack direction="row" alignItems="center" spacing={0.8} sx={{ mb: 1 }}>
+                                <Box sx={{
+                                  width: 22, height: 22, borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  background: `${meta.color}15`, color: meta.color,
+                                }}>
+                                  {meta.icon}
+                                </Box>
+                                <Typography variant="overline" sx={{ fontWeight: 800, color: meta.color, letterSpacing: '0.1em', fontSize: '0.62rem', lineHeight: 1 }}>
+                                  {meta.label}
                                 </Typography>
-                                <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.65rem' }}>
-                                  {brokerage.supportedAssets.join(' · ')}
-                                </Typography>
-                              </Box>
-                            </Stack>
-                            <Stack direction="row" alignItems="center" spacing={0.5}>
-                              {brokerage.isConnected ? (
-                                <CheckIcon sx={{ color: '#10b981', fontSize: 18 }} />
-                              ) : (
-                                <Tooltip title={`Open ${brokerage.displayName}`}>
-                                  <IconButton
-                                    size="small"
-                                    onClick={(e) => { e.stopPropagation(); window.open(brokerage.connectionUrl, '_blank'); }}
+                                <Chip
+                                  label={grouped[cat].length}
+                                  size="small"
+                                  sx={{
+                                    height: 16, fontSize: '0.55rem', fontWeight: 800, minWidth: 0,
+                                    background: `${meta.color}12`, color: meta.color,
+                                    '& .MuiChip-label': { px: 0.5 },
+                                  }}
+                                />
+                              </Stack>
+                              <Stack spacing={0.6}>
+                                {grouped[cat].map((brokerage) => (
+                                  <Paper
+                                    key={brokerage.id}
+                                    elevation={0}
+                                    sx={{
+                                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                      px: 1.5, py: 1, borderRadius: '10px',
+                                      background: brokerage.isConnected
+                                        ? `${brokerage.color}06`
+                                        : isDark ? 'rgba(255,255,255,0.015)' : 'rgba(0,0,0,0.01)',
+                                      border: `1px solid ${brokerage.isConnected ? `${brokerage.color}20` : isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'}`,
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease',
+                                      '&:hover': { borderColor: `${brokerage.color}50`, background: `${brokerage.color}06` },
+                                    }}
+                                    onClick={() => !brokerage.isConnected && handleConnectBrokerage(brokerage.id)}
                                   >
-                                    <OpenInNewIcon sx={{ fontSize: 14, color: theme.palette.text.secondary }} />
-                                  </IconButton>
-                                </Tooltip>
-                              )}
-                            </Stack>
-                          </Paper>
-                        ))}
-                      </Stack>
+                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                      <Box sx={{
+                                        width: 28, height: 28, borderRadius: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        background: `${brokerage.color}10`, fontSize: '0.85rem',
+                                      }}>
+                                        {brokerage.icon}
+                                      </Box>
+                                      <Box>
+                                        <Typography variant="body2" sx={{ fontWeight: 650, color: theme.palette.text.primary, fontSize: '0.78rem', lineHeight: 1.2 }}>
+                                          {brokerage.displayName}
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.6rem' }}>
+                                          {brokerage.supportedAssets.slice(0, 3).join(' · ')}
+                                        </Typography>
+                                      </Box>
+                                    </Stack>
+                                    {brokerage.isConnected ? (
+                                      <CheckIcon sx={{ color: '#10b981', fontSize: 16 }} />
+                                    ) : (
+                                      <Tooltip title={`Open ${brokerage.displayName}`}>
+                                        <IconButton
+                                          size="small"
+                                          onClick={(e) => { e.stopPropagation(); window.open(brokerage.connectionUrl, '_blank'); }}
+                                          sx={{ width: 24, height: 24 }}
+                                        >
+                                          <OpenInNewIcon sx={{ fontSize: 12, color: theme.palette.text.secondary }} />
+                                        </IconButton>
+                                      </Tooltip>
+                                    )}
+                                  </Paper>
+                                ))}
+                              </Stack>
+                            </Box>
+                          );
+                        });
+                      })()}
                     </>
                   )}
 
-                  {/* Monad + Unlink footer */}
+                  {/* Verification footer */}
                   <Paper
                     elevation={0}
                     sx={{
-                      p: 2, borderRadius: '14px',
+                      p: 1.5, borderRadius: '12px', mt: 1,
                       background: isDark
-                        ? 'linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(16,185,129,0.04) 100%)'
-                        : 'linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(16,185,129,0.03) 100%)',
-                      border: '1px solid rgba(99,102,241,0.15)',
+                        ? 'linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(16,185,129,0.03) 100%)'
+                        : 'linear-gradient(135deg, rgba(99,102,241,0.03) 0%, rgba(16,185,129,0.02) 100%)',
+                      border: '1px solid rgba(99,102,241,0.1)',
                     }}
                   >
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                      <LockIcon sx={{ fontSize: 15, color: '#8b5cf6' }} />
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: theme.palette.text.primary, fontSize: '0.8rem' }}>
-                        Powered by Monad + Unlink
-                      </Typography>
-                    </Stack>
-                    <Typography variant="caption" sx={{ color: theme.palette.text.secondary, lineHeight: 1.5, fontSize: '0.7rem' }}>
-                      400ms blocks · 800ms finality · Zero-knowledge privacy
-                    </Typography>
-                    <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
-                      <Button
+                    <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
+                      <Chip
+                        label="Signals verified on-chain"
                         size="small"
-                        variant="outlined"
-                        onClick={() => navigate('/unlink')}
-                        startIcon={<LockIcon sx={{ fontSize: 14 }} />}
+                        icon={<CheckIcon sx={{ fontSize: '12px !important', color: '#10b981 !important' }} />}
                         sx={{
-                          textTransform: 'none', fontSize: '0.72rem', borderRadius: '10px',
-                          borderColor: '#8b5cf6', color: '#8b5cf6',
-                          '&:hover': { background: '#8b5cf608' },
+                          height: 22, fontSize: '0.6rem', fontWeight: 700,
+                          background: '#10b98108', color: '#10b981',
+                          border: '1px solid #10b98115',
                         }}
-                      >
-                        Private Wallet
-                      </Button>
-                      <Button
+                      />
+                      <Chip
+                        label="Monadscan"
                         size="small"
-                        variant="outlined"
                         onClick={() => window.open('https://testnet.monadscan.com', '_blank')}
                         sx={{
-                          textTransform: 'none', fontSize: '0.72rem', borderRadius: '10px',
-                          borderColor: '#10b981', color: '#10b981',
-                          '&:hover': { background: '#10b98108' },
+                          height: 22, fontSize: '0.6rem', fontWeight: 700, cursor: 'pointer',
+                          background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                          border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
                         }}
-                      >
-                        Monadscan
-                      </Button>
+                      />
+                      <Chip
+                        label="Private Wallet"
+                        size="small"
+                        onClick={() => navigate('/unlink')}
+                        icon={<LockIcon sx={{ fontSize: '11px !important', color: '#8b5cf6 !important' }} />}
+                        sx={{
+                          height: 22, fontSize: '0.6rem', fontWeight: 700, cursor: 'pointer',
+                          background: '#8b5cf608', color: '#8b5cf6',
+                          border: '1px solid #8b5cf615',
+                        }}
+                      />
                     </Stack>
                   </Paper>
                 </>,
