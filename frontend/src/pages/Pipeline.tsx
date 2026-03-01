@@ -536,7 +536,7 @@ const Pipeline: React.FC = () => {
                 YSM Signal Pipeline
               </Typography>
             </Stack>
-            <Typography variant="body1" sx={{ color: theme.palette.text.secondary, maxWidth: 700, mx: 'auto', mb: 2, fontWeight: 400 }}>
+            <Typography variant="body1" sx={{ color: theme.palette.text.primary, opacity: 0.7, maxWidth: 700, mx: 'auto', mb: 2, fontWeight: 400 }}>
               Social Intelligence → AI Processing → Signal Generation → Asset Discovery → Trade Execution
             </Typography>
             <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
@@ -915,7 +915,7 @@ const Pipeline: React.FC = () => {
                     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, gap: 0.5 }}>
                       {['Input', 'YSM', 'Output'].map((label, i) => (
                         <React.Fragment key={label}>
-                          {i > 0 && <ArrowForwardIcon sx={{ color: theme.palette.text.secondary, fontSize: 16, alignSelf: 'center' }} />}
+                          {i > 0 && <ArrowForwardIcon sx={{ color: theme.palette.text.primary, fontSize: 16, alignSelf: 'center', opacity: 0.7 }} />}
                           <Chip
                             label={label}
                             size="small"
@@ -1512,7 +1512,7 @@ const Pipeline: React.FC = () => {
                 { label: 'Execution', color: '#f59e0b', icon: <BrokerageIcon sx={{ fontSize: 14 }} /> },
               ].map((step, i) => (
                 <React.Fragment key={step.label}>
-                  {i > 0 && <ArrowForwardIcon sx={{ color: theme.palette.text.secondary, fontSize: 14, opacity: 0.4 }} />}
+                  {i > 0 && <ArrowForwardIcon sx={{ color: theme.palette.text.primary, fontSize: 14, opacity: 0.7 }} />}
                   <Chip
                     icon={step.icon}
                     label={step.label}

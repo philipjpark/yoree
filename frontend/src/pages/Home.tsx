@@ -329,7 +329,7 @@ const Home: React.FC = () => {
                       <Typography variant="h6" sx={{ fontWeight: 800, color: theme.palette.text.primary, fontSize: '1rem' }}>
                         YSM Signal Pipeline
                       </Typography>
-                      <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
+                      <Typography variant="caption" sx={{ color: theme.palette.text.primary, opacity: 0.65 }}>
                         Social → AI → Signals → Assets → Execution
                       </Typography>
                     </Box>
@@ -356,7 +356,7 @@ const Home: React.FC = () => {
                       {i > 0 && (
                         <ArrowForwardIcon
                           sx={{
-                            color: theme.palette.text.secondary, fontSize: 16, opacity: 0.3,
+                            color: theme.palette.text.primary, fontSize: 16, opacity: 0.65,
                             display: { xs: 'none', sm: 'block' },
                           }}
                         />
