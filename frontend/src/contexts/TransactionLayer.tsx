@@ -166,6 +166,10 @@ export const TransactionLayerProvider: React.FC<{ children: React.ReactNode }> =
     });
 
     setTotalRegistered(prev => prev + 1);
+    
+    // Dispatch event to refresh MON balance in Navbar
+    window.dispatchEvent(new CustomEvent('signalRegistered', { detail: result }));
+    
     return result;
   }, [privacyEnabled]);
 
@@ -257,6 +261,9 @@ export const TransactionLayerProvider: React.FC<{ children: React.ReactNode }> =
       });
 
       setTotalRegistered(prev => prev + 1);
+
+      // Dispatch event to refresh MON balance in Navbar
+      window.dispatchEvent(new CustomEvent('signalRegistered', { detail: result }));
 
       updatePreFlight({
         txHash: result.txHash,
