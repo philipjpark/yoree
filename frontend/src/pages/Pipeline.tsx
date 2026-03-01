@@ -217,7 +217,7 @@ const Pipeline: React.FC = () => {
       setStreamingText('');
       const hypothesis = result.hypothesis;
       for (let i = 0; i < hypothesis.length; i++) {
-        await new Promise(r => setTimeout(r, 1.5));
+        await new Promise(r => setTimeout(r, 0.75));
         setStreamingText(prev => prev + hypothesis[i]);
       }
       setIsStreaming(false);
@@ -280,7 +280,7 @@ const Pipeline: React.FC = () => {
       // Stream the hypothesis
       const hypothesis = result.hypothesis;
       for (let i = 0; i < hypothesis.length; i++) {
-        await new Promise(r => setTimeout(r, 1.5));
+        await new Promise(r => setTimeout(r, 0.75));
         setStreamingText(prev => prev + hypothesis[i]);
       }
       setIsStreaming(false);
