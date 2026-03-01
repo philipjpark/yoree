@@ -242,6 +242,67 @@ const Pipeline: React.FC = () => {
     }
   };
 
+  const handleGenerateFromSocials = async () => {
+    const connectedSocials = socialConnections.filter(s => s.isConnected);
+    if (connectedSocials.length === 0) {
+      return;
+    }
+
+    setIsProcessing(true);
+    setIsStreaming(true);
+    setActiveSignal(null);
+    setStreamingText('');
+
+    try {
+      // Build a personalized prompt from the user's connected socials
+      const socialNames = connectedSocials.map(s => s.displayName).join(', ');
+      const personalizedPrompt = `Generate a unique trading signal based on the user's personalized social media feed from: ${socialNames}. Analyze patterns, sentiment, and emerging trends across these sources to identify proprietary opportunities that are endemic to this user's unique combination of followed accounts, communities, and subscriptions.`;
+
+      // Use the first connected social as the source, but the prompt is personalized
+      const result = await pipelineService.processSignal(
+        connectedSocials[0].platform,
+        personalizedPrompt
+      );
+      
+      setRecentSignals(pipelineService.getRecentSignals());
+      setStats(pipelineService.getStats());
+      setActiveSignal(result);
+
+      // Stream the hypothesis
+      const hypothesis = result.hypothesis;
+      for (let i = 0; i < hypothesis.length; i++) {
+        await new Promise(r => setTimeout(r, 12));
+        setStreamingText(prev => prev + hypothesis[i]);
+      }
+      setIsStreaming(false);
+
+      // Auto-register on-chain
+      setOnChainResult(null);
+      try {
+        const chainResult = await registerOnChain({
+          hypothesis: result.hypothesis,
+          quality: result.confidence,
+          sentiment: result.sentiment || 'neutral',
+          assetCount: result.discoveredAssets.length,
+          source: 'personalized-socials',
+          timestamp: result.timestamp,
+        });
+        setOnChainResult({
+          txHash: chainResult.txHash,
+          signalId: chainResult.signalId,
+          explorerUrl: chainResult.explorerUrl,
+        });
+      } catch {
+        // Non-critical
+      }
+    } catch (err) {
+      console.error('Failed to generate from socials:', err);
+      setIsStreaming(false);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleCreateSignal = async () => {
     if (!activeSignal) return;
     const created = pipelineService.createSignalFromPipeline(activeSignal);
@@ -763,22 +824,49 @@ const Pipeline: React.FC = () => {
                       },
                     }}
                   />
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    onClick={handleProcessSignal}
-                    disabled={isProcessing || !signalInput.trim()}
-                    startIcon={isProcessing ? <CircularProgress size={18} color="inherit" /> : <SendIcon />}
-                    sx={{
-                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                      fontWeight: 700, fontSize: '0.88rem', textTransform: 'none',
-                      borderRadius: '12px', py: 1.2,
-                      boxShadow: '0 8px 24px rgba(16,185,129,0.25)',
-                      '&:hover': { boxShadow: '0 12px 32px rgba(16,185,129,0.35)' },
-                    }}
-                  >
-                    {isProcessing ? 'Running Pipeline...' : 'Run Through Pipeline'}
-                  </Button>
+                  <Stack spacing={1.5}>
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      onClick={handleProcessSignal}
+                      disabled={isProcessing || !signalInput.trim()}
+                      startIcon={isProcessing ? <CircularProgress size={18} color="inherit" /> : <SendIcon />}
+                      sx={{
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        fontWeight: 700, fontSize: '0.88rem', textTransform: 'none',
+                        borderRadius: '12px', py: 1.2,
+                        boxShadow: '0 8px 24px rgba(16,185,129,0.25)',
+                        '&:hover': { boxShadow: '0 12px 32px rgba(16,185,129,0.35)' },
+                      }}
+                    >
+                      {isProcessing ? 'Running Pipeline...' : 'Run Through Pipeline'}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      onClick={handleGenerateFromSocials}
+                      disabled={isProcessing || socialConnections.filter(s => s.isConnected).length === 0}
+                      startIcon={isProcessing ? <CircularProgress size={18} /> : <SparkleIcon />}
+                      sx={{
+                        fontWeight: 700, fontSize: '0.88rem', textTransform: 'none',
+                        borderRadius: '12px', py: 1.2,
+                        borderColor: '#6366f1',
+                        color: '#6366f1',
+                        background: isDark ? 'rgba(99,102,241,0.05)' : 'rgba(99,102,241,0.03)',
+                        '&:hover': {
+                          borderColor: '#6366f1',
+                          background: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)',
+                          boxShadow: '0 8px 24px rgba(99,102,241,0.2)',
+                        },
+                        '&:disabled': {
+                          borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                          color: theme.palette.text.disabled,
+                        },
+                      }}
+                    >
+                      {isProcessing ? 'Generating...' : 'Generate from My Socials'}
+                    </Button>
+                  </Stack>
 
                   {/* Pipeline Step Progress */}
                   <AnimatePresence>
