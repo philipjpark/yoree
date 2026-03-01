@@ -10,16 +10,18 @@
 
 [![Minam](https://img.shields.io/badge/Powered%20by-Minam-blue)](https://github.com/philipjpark/minam)
 [![Syuzhet](https://img.shields.io/badge/Powered%20by-Syuzhet-green)](https://github.com/philipjpark/syuzhet)
-[![BNB Chain](https://img.shields.io/badge/Blockchain-BNB%20Chain-yellow)](https://www.bnbchain.org)
+[![Monad](https://img.shields.io/badge/Blockchain-Monad%20Testnet-green)](https://docs.monad.xyz)
+[![Unlink](https://img.shields.io/badge/Privacy-Unlink-purple)](https://docs.unlink.xyz)
 
 </div>
 
 ## 🏆 Awards & Recognition
 
-- **🚀 Launching on the BNB Chain in Q1 2026** [![BNB Chain](https://img.shields.io/badge/BNB%20Chain-F3BA2F?style=flat&logo=binance&logoColor=white)](https://www.bnbchain.org)
+- **🚀 Deployed on Monad Testnet** [![Monad](https://img.shields.io/badge/Monad%20Testnet-10b981?style=flat&logo=ethereum&logoColor=white)](https://docs.monad.xyz)
+- **🔒 Privacy Layer Powered by Unlink** [![Unlink](https://img.shields.io/badge/Unlink-8b5cf6?style=flat)](https://docs.unlink.xyz)
+- **⛓️ On-Chain Signal Registry** - Every signal is verifiable on Monad Testnet
 - **🥈 2025 Blockworks Permissionless IV Hackathon** – 2nd Place Winner
 - **🏆 NYC AI Tinkerers Agentic AI App Hackathon with Google Cloud Run GPUs** - Featured Finalist
-- **🎤 Live Demo Selectee to BNB Chain Community** - July 2025
 
 > <span style="color:gray;"><i>Originally built as <b>Bibim</b> – now evolved into <b>Yoree Signals Market</b> with major updates.</i></span>
 
@@ -255,6 +257,17 @@ Validation Sources Connection
     ↓
 Market Asset (Tradeable Signal)
     ↓
+🔄 ON-CHAIN REGISTRATION (Monad Testnet)
+    ├─ SignalRegistry Contract
+    ├─ Signal hash verification
+    ├─ Quality & sentiment tracking
+    └─ Privacy flag (Unlink routing)
+    ↓
+🔒 PRIVACY ROUTING (Optional - Unlink)
+    ├─ Zero-knowledge privacy
+    ├─ Private wallet transactions
+    └─ Shielded execution
+    ↓
 Exchange Connection & Trading
     ├─ Binance, Coinbase (Crypto)
     ├─ NYSE, NASDAQ (Stocks)
@@ -274,8 +287,9 @@ Market Price Evolution
 | **Backend** | Rust (Axum) - High-performance API server |
 | **Data Layer** | Minam (Rust/Axum + Next.js) - Data ingestion and normalization |
 | **AI Layer** | Syuzhet (Next.js + OpenAI GPT-4o-mini) - Narrative generation |
-| **Blockchain** | BNB Chain (Mainnet & Testnet), Arc Testnet - EVM-compatible |
-| **Smart Contracts** | Solidity, OpenZeppelin |
+| **Blockchain** | Monad Testnet - EVM-compatible L1 with 400ms blocks, 800ms finality |
+| **Privacy Layer** | Unlink - Zero-knowledge privacy for private transactions |
+| **Smart Contracts** | Solidity (SignalRegistry.sol), Hardhat for deployment |
 | **Database** | PostgreSQL (future), Mock DB (MVP) |
 | **AI Models** | OpenAI GPT-4o-mini, Google Gemma 3-4B (for strategy generation) |
 | **Real-Time** | WebSockets (recommended for MVP) |
@@ -492,10 +506,11 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com aiplatform.g
   - Bonds (sovereign, corporate)
   - Commodities (physical, derivatives)
 - **Exchange Integration**: Connect to Binance, NYSE, CME, Polymarket, and more for direct trading
-- **Validation Sources**: Access Google Trends, X/Twitter, Reddit, YouTube, Discord, Telegram, news, on-chain data, OPEC, EIA, Bloomberg, Reuters
+- **Validation Sources**: Access Google Trends, X/Twitter, Reddit, YouTube, Discord, Telegram, Substack, Medium, news, on-chain data, OPEC, EIA, Bloomberg, Reuters
 - **Market Trading**: Trade signal quality as first-class assets
 - **Quality Scoring**: Continuous signal quality updates based on performance
 - **Historical Tracking**: Track signal performance over time
+- **Personalized Signal Generation**: Generate signals from your unique social media feed combinations
 
 ### 💰 Stablecoin Integration (coming soon)
 - **Stablecoin Swap Interface**: Seamlessly swap between stablecoins and native tokens
@@ -511,11 +526,21 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com aiplatform.g
 - **Real-time Balance Updates**: Live portfolio value calculations
 
 ### 🔗 Blockchain Integration
-- **High Throughput**: Leverage fast and low-cost transactions
+- **Monad Testnet**: Deployed on Monad Testnet with 400ms blocks and 800ms finality
+- **On-Chain Signal Registry**: Every signal is registered and verifiable on-chain via SignalRegistry contract
+- **Unlink Privacy Layer**: Zero-knowledge privacy routing for private transactions
 - **Smart Contract Security**: Audited contracts with comprehensive safety features
 - **Gas Optimization**: Efficient transaction processing with minimal costs
-- **Cross-chain Compatibility**: Support for BNB Chain and Arc Testnet
-- **Wallet Integration**: Support for MetaMask, WalletConnect, and Trust Wallet
+- **Wallet Integration**: Support for MetaMask, WalletConnect, and compatible Web3 wallets
+- **Pre-Flight Execution**: Multi-step execution routing with privacy → on-chain registration → platform routing
+
+### 🔒 Privacy & On-Chain Verification
+- **Unlink Integration**: Private wallet and transaction routing via Unlink's zero-knowledge privacy layer
+- **Signal Registry Contract**: Simple Solidity contract on Monad Testnet for on-chain signal verification
+- **TransactionLayer Provider**: Global transaction orchestration with privacy toggle and auto-registration
+- **Pre-Flight Overlay**: Visual feedback during execution routing (privacy → registration → platform)
+- **Privacy Toggle**: One-click privacy mode to route transactions through Unlink
+- **On-Chain Stats**: Real-time tracking of signals registered on-chain
 
 ---
 
@@ -524,6 +549,10 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com aiplatform.g
 ### Available Scripts
 
 ```bash
+# Deploy SignalRegistry contract to Monad Testnet
+cd contracts
+npx hardhat run scripts/deploy-signal-registry.js --network monadTestnet
+
 # Test the complete agent system
 node scripts/test-sol-agents.js
 
@@ -546,6 +575,24 @@ npm test
 # Run backend tests
 cd backend
 cargo test
+```
+
+### Smart Contract Deployment
+
+**SignalRegistry Contract** (`contracts/SignalRegistry.sol`):
+- Simple Solidity contract for on-chain signal verification
+- Stores signal metadata: hash, creator, quality, sentiment, asset count, timestamp, privacy flag, source
+- Deployed on Monad Testnet (Chain ID: 10143)
+- Enables verifiable signal tracking and quality updates
+
+**Deployment**:
+```bash
+# Set environment variables
+export MONAD_RPC_URL="https://testnet-rpc.monad.xyz"
+export PRIVATE_KEY="your_private_key_here"
+
+# Deploy
+npx hardhat run scripts/deploy-signal-registry.js --network monadTestnet
 ```
 
 ### Testing
@@ -666,9 +713,11 @@ cargo test
 </div>
 
 ### Blockchain Networks
-- [BNB Chain Documentation](https://docs.bnbchain.org)
-- [BNB Chain Testnet Faucet](https://testnet.bnbchain.org/faucet-smart)
-- [Arc Deployment Tutorial](https://docs.arc.network/arc/tutorials/deploy-on-arc)
+- [Monad Documentation](https://docs.monad.xyz) - EVM-compatible L1 with 400ms blocks
+- [Monad Testnet Explorer](https://testnet.monadscan.com) - Block explorer for Monad Testnet
+- [Monad Testnet Faucet](https://testnet.monad.xyz) - Get testnet MON tokens
+- [Unlink Documentation](https://docs.unlink.xyz) - Zero-knowledge privacy layer
+- [Unlink Faucet](https://faucet.unlink.xyz) - Get testnet tokens for private transactions
 
 ---
 
@@ -694,7 +743,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 *Powered by [Minam](https://github.com/philipjpark/minam) and [Syuzhet](https://github.com/philipjpark/syuzhet)*
 
-[![BNB Chain](https://img.shields.io/badge/Powered%20by-BNB%20Chain-yellow)](https://www.bnbchain.org)
-[![Arc](https://img.shields.io/badge/Powered%20by-Arc-blue)](https://docs.arc.network)
+[![Monad](https://img.shields.io/badge/Powered%20by-Monad-green)](https://docs.monad.xyz)
+[![Unlink](https://img.shields.io/badge/Privacy%20by-Unlink-purple)](https://docs.unlink.xyz)
 
 </div>
