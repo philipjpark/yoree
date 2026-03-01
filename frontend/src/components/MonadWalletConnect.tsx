@@ -58,23 +58,90 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
       try {
         setIsRefreshing(true);
         const balance = await monadService.refreshBalance();
-        setWalletState(prev => prev ? { ...prev, balance } : null);
+        setWalletState(prev => {
+          if (prev) {
+            return { ...prev, balance };
+          } else {
+            // If no previous state, create new state with current wallet info
+            return { ...state, balance };
+          }
+        });
       } catch (error) {
         console.error('Failed to refresh balance:', error);
+        // Even if balance refresh fails, keep the wallet state
+        setWalletState(state);
       } finally {
         setIsRefreshing(false);
       }
     }
   }, []);
 
+  // Check wallet when dialog opens
   useEffect(() => {
-    const checkWallet = () => {
-      const state = monadService.getWalletState();
-      if (state.isConnected) {
-        setWalletState(state);
-        refreshBalance();
-      } else {
-        setWalletState(null);
+    if (open) {
+      const checkWalletOnOpen = async () => {
+        try {
+          if (window.ethereum) {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            if (accounts && accounts.length > 0) {
+              const state = await monadService.connectWallet();
+              if (state.isConnected) {
+                setWalletState(state);
+                await refreshBalance();
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error checking wallet on dialog open:', error);
+        }
+      };
+      checkWalletOnOpen();
+    }
+  }, [open, refreshBalance]);
+
+  useEffect(() => {
+    const checkWallet = async () => {
+      try {
+        // First check monadService state (fastest)
+        let state = monadService.getWalletState();
+        
+        // If not connected, try to get accounts from provider
+        if (!state.isConnected && window.ethereum) {
+          try {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            if (accounts && accounts.length > 0) {
+              // Wallet is connected, sync with monadService
+              state = await monadService.connectWallet();
+            }
+          } catch (err) {
+            // Provider might not be available, continue with monadService state
+            console.log('Provider check failed:', err);
+          }
+        }
+        
+        // Update state if connected
+        if (state.isConnected && state.address) {
+          setWalletState(state);
+          // Fetch balance
+          try {
+            const balance = await monadService.refreshBalance();
+            setWalletState(prev => prev ? { ...prev, balance } : { ...state, balance });
+          } catch (err) {
+            console.error('Failed to fetch balance:', err);
+            // Still set wallet state even if balance fetch fails
+            setWalletState(state);
+          }
+        } else {
+          setWalletState(null);
+        }
+      } catch (error) {
+        console.error('Error checking wallet:', error);
+        const state = monadService.getWalletState();
+        if (state.isConnected) {
+          setWalletState(state);
+        } else {
+          setWalletState(null);
+        }
       }
     };
 
@@ -91,10 +158,27 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
       }
     }, 10000);
 
+    // Listen for MetaMask account changes
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length > 0) {
+        checkWallet();
+      } else {
+        setWalletState(null);
+      }
+    };
+
     // Listen for signal creation events to refresh immediately
     const handleSignalRegistered = () => {
       setTimeout(refreshBalance, 2000); // Wait 2s for transaction to confirm
     };
+    
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', () => {
+        setTimeout(checkWallet, 500);
+      });
+    }
+    
     window.addEventListener('signalRegistered', handleSignalRegistered);
     window.addEventListener('signalCreated', handleSignalRegistered);
     window.addEventListener('walletConnected', checkWallet);
@@ -102,6 +186,10 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
     return () => {
       clearInterval(walletCheckInterval);
       clearInterval(balanceInterval);
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        window.ethereum.removeListener('chainChanged', () => {});
+      }
       window.removeEventListener('signalRegistered', handleSignalRegistered);
       window.removeEventListener('signalCreated', handleSignalRegistered);
       window.removeEventListener('walletConnected', checkWallet);
@@ -115,15 +203,25 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
   ];
 
   const handleWalletSelect = async (walletName?: string) => {
-    // Disabled automatic connection - user must manually connect via wallet extension
-    // This prevents automatic MetaMask popup when clicking wallet options
-    if (walletName === 'MetaMask' && window.ethereum) {
-      // Just open MetaMask extension page or do nothing
-      console.log('MetaMask detected. Please connect manually via the extension.');
-      return;
+    setIsConnecting(true);
+    try {
+      const state = await monadService.connectWallet();
+      setWalletState(state);
+      await unlinkService.createAccount(state.address);
+      await refreshBalance();
+      if (onConnect) onConnect(state.address);
+      setOpen(false);
+      if (onClose) onClose();
+    } catch (error: any) {
+      console.error('Failed to connect wallet:', error);
+      if (error.message.includes('No Web3 provider')) {
+        if (walletName === 'MetaMask') {
+          window.open('https://metamask.io/', '_blank');
+        }
+      }
+    } finally {
+      setIsConnecting(false);
     }
-    // For other wallets, just show install links or do nothing
-    console.log(`Please connect ${walletName || 'your wallet'} manually.`);
   };
 
   const handleDisconnect = () => {
@@ -133,8 +231,9 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
   };
 
   const handleCopyAddress = () => {
-    if (walletState?.address) {
-      navigator.clipboard.writeText(walletState.address);
+    const state = walletState || monadService.getWalletState();
+    if (state?.address) {
+      navigator.clipboard.writeText(state.address);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -156,7 +255,12 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
   };
 
   // ── Connected state ──
-  if (walletState?.isConnected) {
+  // Also check monadService directly in case walletState is stale
+  const currentWalletState = monadService.getWalletState();
+  const isConnected = walletState?.isConnected || currentWalletState.isConnected;
+  const displayState = walletState || (currentWalletState.isConnected ? currentWalletState : null);
+  
+  if (isConnected && displayState) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         <Paper
@@ -181,12 +285,12 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
           onClick={() => setOpen(true)}
         >
           <WalletIcon sx={{ fontSize: 18, color: '#10b981' }} />
-          <Box>
-            <Typography variant="body2" sx={{ fontWeight: 800, color: '#10b981', fontSize: '0.85rem', lineHeight: 1 }}>
-              {isRefreshing ? '...' : parseFloat(walletState.balance).toFixed(2)}
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <Typography variant="body2" sx={{ fontWeight: 800, color: '#10b981', fontSize: '0.85rem', lineHeight: 1.2 }}>
+              {isRefreshing ? '...' : (displayState.balance ? parseFloat(displayState.balance).toFixed(2) : '0.00')} MON
             </Typography>
-            <Typography variant="caption" sx={{ color: '#10b981', fontSize: '0.6rem', fontWeight: 700, opacity: 0.9, lineHeight: 1 }}>
-              MON
+            <Typography variant="caption" sx={{ color: '#10b981', fontSize: '0.6rem', fontWeight: 600, opacity: 0.7, lineHeight: 1 }}>
+              {displayState.address ? shortenAddress(displayState.address) : '...'}
             </Typography>
           </Box>
           <Box sx={{ width: 5, height: 5, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px rgba(16,185,129,0.5)' }} />
@@ -243,7 +347,7 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
                 </Typography>
                 <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.5 }}>
                   <Typography variant="body2" sx={{ fontFamily: 'monospace', flex: 1, wordBreak: 'break-all', color: theme.palette.text.primary, fontSize: '0.76rem' }}>
-                    {walletState.address}
+                    {displayState.address}
                   </Typography>
                   <Tooltip title={copied ? 'Copied!' : 'Copy'}>
                     <IconButton size="small" onClick={handleCopyAddress} sx={{ width: 26, height: 26 }}>
@@ -251,7 +355,7 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="View on explorer">
-                    <IconButton size="small" onClick={() => window.open(monadService.getExplorerAddressUrl(walletState.address), '_blank')} sx={{ width: 26, height: 26 }}>
+                    <IconButton size="small" onClick={() => window.open(monadService.getExplorerAddressUrl(displayState.address), '_blank')} sx={{ width: 26, height: 26 }}>
                       <OpenInNewIcon sx={{ fontSize: 13 }} />
                     </IconButton>
                   </Tooltip>
@@ -269,7 +373,7 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
                   }}
                 >
                   <Typography variant="h4" sx={{ fontWeight: 800, color: '#10b981', fontSize: '1.8rem', lineHeight: 1.2 }}>
-                    {parseFloat(walletState.balance).toFixed(3)}
+                    {displayState.balance ? parseFloat(displayState.balance).toFixed(3) : '0.000'}
                   </Typography>
                   <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.72rem', fontWeight: 600 }}>
                     MON Balance
