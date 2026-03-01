@@ -1,5 +1,5 @@
 /**
- * YSM Bicameral Pipeline Service
+ * YSM Signal Pipeline Service
  * 
  * Orchestrates the complete flow:
  *   Social Intelligence → AI Processing → Signal Generation → Asset Discovery → Trade Execution
@@ -22,11 +22,15 @@
  *   - Unlink private wallet for on-chain privacy (Monad Testnet)
  */
 
+import axios from 'axios';
+
+const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY || '';
+
 // ============================================================
 // Types
 // ============================================================
 
-export type SocialPlatform = 'telegram' | 'tiktok' | 'x' | 'discord' | 'reddit' | 'youtube';
+export type SocialPlatform = 'telegram' | 'tiktok' | 'x' | 'discord' | 'reddit' | 'youtube' | 'google-trends' | 'substack' | 'medium' | 'other';
 export type AIModel = 'gpt-4o' | 'gemma-3-4b' | 'ysm-proprietary' | 'custom';
 export type BrokerageId = 
   | 'unlink-private'
@@ -87,16 +91,45 @@ export interface PipelineSignal {
   discoveredAssets: DiscoveredAsset[];
   routedTo: BrokerageId[];
   timestamp: string;
-  status: 'ingested' | 'processing' | 'signal_generated' | 'assets_discovered' | 'routed' | 'executed';
+  status: 'ingested' | 'processing' | 'ai_analyzing' | 'signal_generated' | 'assets_discovered' | 'routed' | 'executed';
+  // New fields for richer pipeline output
+  sentiment?: 'bullish' | 'bearish' | 'neutral';
+  aiReasoning?: string;
+  strategies?: AssetStrategy[];
+  pipelineSteps?: PipelineStep[];
+}
+
+export interface PipelineStep {
+  name: string;
+  status: 'pending' | 'running' | 'completed' | 'error';
+  description: string;
+  startedAt?: string;
+  completedAt?: string;
+  result?: string;
 }
 
 export interface DiscoveredAsset {
   symbol: string;
   name: string;
   assetClass: string;
-  platform: BrokerageId;
+  platform: string;
+  platformName: string;
   platformUrl: string;
   confidence: number;
+  action?: string; // 'long' | 'short' | 'hold' | 'hedge'
+  reasoning?: string;
+}
+
+export interface AssetStrategy {
+  assetSymbol: string;
+  assetClass: string;
+  action: string;
+  entry: string;
+  exit: string;
+  risk: string;
+  timeHorizon: string;
+  platform: string;
+  platformUrl: string;
 }
 
 export interface PipelineStats {
@@ -149,6 +182,27 @@ export const DATA_APIS = {
     free: true,
     description: 'On-chain data, balances, transactions on Monad',
   },
+  googleTrends: {
+    name: 'Google Trends',
+    url: 'https://trends.google.com/trends/api/explore',
+    docs: 'https://trends.google.com/trends/',
+    free: true,
+    description: 'Search interest data & trending topics over time',
+  },
+  substack: {
+    name: 'Substack',
+    url: 'https://substack.com',
+    docs: 'https://substack.com',
+    free: true,
+    description: 'Newsletter insights from finance & macro writers',
+  },
+  medium: {
+    name: 'Medium',
+    url: 'https://medium.com',
+    docs: 'https://medium.com',
+    free: true,
+    description: 'Long-form analysis from independent writers & researchers',
+  },
 };
 
 // ============================================================
@@ -198,12 +252,16 @@ export const PLATFORM_DIRECTORY: Record<string, { name: string; url: string; cat
 // ============================================================
 
 const DEFAULT_SOCIAL_CONNECTIONS: SocialConnection[] = [
-  { platform: 'x',        displayName: 'X (Twitter)',  icon: '𝕏', isConnected: false, color: '#000000', url: 'https://x.com' },
-  { platform: 'telegram', displayName: 'Telegram',     icon: '✈️', isConnected: false, color: '#0088cc', url: 'https://telegram.org' },
-  { platform: 'tiktok',   displayName: 'TikTok',       icon: '🎵', isConnected: false, color: '#ff0050', url: 'https://tiktok.com' },
-  { platform: 'discord',  displayName: 'Discord',      icon: '💬', isConnected: false, color: '#5865F2', url: 'https://discord.com' },
-  { platform: 'reddit',   displayName: 'Reddit',       icon: '🔴', isConnected: false, color: '#FF4500', url: 'https://reddit.com' },
-  { platform: 'youtube',  displayName: 'YouTube',      icon: '▶️', isConnected: false, color: '#FF0000', url: 'https://youtube.com' },
+  { platform: 'x',              displayName: 'X (Twitter)',     icon: '𝕏',  isConnected: false, color: '#000000', url: 'https://x.com' },
+  { platform: 'telegram',       displayName: 'Telegram',        icon: '✈️', isConnected: false, color: '#0088cc', url: 'https://telegram.org' },
+  { platform: 'tiktok',         displayName: 'TikTok',          icon: '🎵', isConnected: false, color: '#ff0050', url: 'https://tiktok.com' },
+  { platform: 'discord',        displayName: 'Discord',         icon: '💬', isConnected: false, color: '#5865F2', url: 'https://discord.com' },
+  { platform: 'reddit',         displayName: 'Reddit',          icon: '🔴', isConnected: false, color: '#FF4500', url: 'https://reddit.com' },
+  { platform: 'youtube',        displayName: 'YouTube',         icon: '▶️', isConnected: false, color: '#FF0000', url: 'https://youtube.com' },
+  { platform: 'google-trends',  displayName: 'Google Trends',   icon: '📈', isConnected: false, color: '#4285F4', url: 'https://trends.google.com' },
+  { platform: 'substack',       displayName: 'Substack',        icon: '📰', isConnected: false, color: '#FF6719', url: 'https://substack.com' },
+  { platform: 'medium',         displayName: 'Medium',          icon: '✍️',  isConnected: false, color: '#00AB6C', url: 'https://medium.com' },
+  { platform: 'other',          displayName: 'Others',          icon: '🔗', isConnected: false, color: '#6b7280', url: '' },
 ];
 
 const DEFAULT_AI_MODELS: AIModelConfig[] = [
@@ -439,12 +497,15 @@ class PipelineService {
   private brokerages: BrokerageConnection[];
   private signals: PipelineSignal[];
   private stats: PipelineStats;
+  private apiKey: string;
+  private onStepUpdate?: (signal: PipelineSignal) => void;
 
   constructor() {
     this.socialConnections = [...DEFAULT_SOCIAL_CONNECTIONS];
     this.aiModels = [...DEFAULT_AI_MODELS];
     this.brokerages = [...DEFAULT_BROKERAGES];
     this.signals = [];
+    this.apiKey = OPENAI_API_KEY;
     this.stats = {
       totalSignalsProcessed: 0,
       activeConnections: 0,
@@ -454,6 +515,17 @@ class PipelineService {
       assetsDiscovered: 0,
       tradesExecuted: 0,
     };
+  }
+
+  /**
+   * Set a callback for real-time pipeline step updates
+   */
+  setStepUpdateCallback(cb: (signal: PipelineSignal) => void) {
+    this.onStepUpdate = cb;
+  }
+
+  clearStepUpdateCallback() {
+    this.onStepUpdate = undefined;
   }
 
   // ============================================================
@@ -489,6 +561,27 @@ class PipelineService {
     }
     this.stats.socialPlatformsConnected = this.socialConnections.filter(c => c.isConnected).length;
     this.updateActiveConnections();
+  }
+
+  /**
+   * Connect an "Other" source with manual info provided by the user.
+   * Updates the 'other' entry's URL and displayName.
+   */
+  connectOtherSource(name: string, url: string): SocialConnection {
+    let otherConn = this.socialConnections.find(c => c.platform === 'other');
+    if (!otherConn) {
+      otherConn = { platform: 'other', displayName: 'Others', icon: '🔗', isConnected: false, color: '#6b7280', url: '' };
+      this.socialConnections.push(otherConn);
+    }
+    otherConn.isConnected = true;
+    otherConn.displayName = name || 'Custom Source';
+    otherConn.url = url || '';
+    otherConn.username = name;
+    otherConn.lastSync = new Date().toISOString();
+    otherConn.dataPoints = 1;
+    this.stats.socialPlatformsConnected = this.socialConnections.filter(c => c.isConnected).length;
+    this.updateActiveConnections();
+    return { ...otherConn };
   }
 
   // ============================================================
@@ -584,6 +677,7 @@ class PipelineService {
               name: matchedAsset,
               assetClass: category,
               platform: platformId,
+              platformName: brokerage.displayName,
               platformUrl: routing.platformUrls[platformId] || brokerage.connectionUrl,
               confidence: brokerage.isConnected ? 95 : 70,
             });
@@ -596,7 +690,7 @@ class PipelineService {
   }
 
   // ============================================================
-  // Pipeline Orchestration
+  // Pipeline Orchestration (with OpenAI)
   // ============================================================
 
   async processSignal(
@@ -615,33 +709,251 @@ class PipelineService {
       routedTo: [],
       timestamp: new Date().toISOString(),
       status: 'ingested',
+      pipelineSteps: [
+        { name: 'Ingestion', status: 'completed', description: 'Signal ingested from social source' },
+        { name: 'AI Analysis', status: 'pending', description: 'Analyzing with AI models...' },
+        { name: 'Hypothesis Generation', status: 'pending', description: 'Generating trading hypothesis...' },
+        { name: 'Asset Discovery', status: 'pending', description: 'Discovering related assets...' },
+        { name: 'Platform Routing', status: 'pending', description: 'Routing to best platforms...' },
+      ],
     };
 
     this.signals.unshift(signal);
+    this.emitUpdate(signal);
 
-    // Step 1: AI Processing (simulated)
-    signal.status = 'processing';
-    await this.simulateDelay(400);
+    // Step 1: AI Processing
+    signal.pipelineSteps![1].status = 'running';
+    signal.pipelineSteps![1].startedAt = new Date().toISOString();
+    signal.status = 'ai_analyzing';
+    this.emitUpdate(signal);
 
-    // Step 2: Generate hypothesis
-    signal.hypothesis = this.generateHypothesis(rawContent);
-    signal.confidence = Math.floor(Math.random() * 30) + 70; // 70-100
+    // Use OpenAI if API key available, otherwise fallback
+    if (this.apiKey) {
+      try {
+        const aiResult = await this.callOpenAI(rawContent);
+        signal.hypothesis = aiResult.hypothesis;
+        signal.confidence = aiResult.confidence;
+        signal.sentiment = aiResult.sentiment;
+        signal.aiReasoning = aiResult.reasoning;
+        signal.discoveredAssets = aiResult.assets.map((a: any) => ({
+          symbol: a.symbol,
+          name: a.name,
+          assetClass: a.assetClass,
+          platform: a.platform || 'binance',
+          platformName: a.platformName || this.getPlatformNameForAsset(a.platform || a.assetClass),
+          platformUrl: a.platformUrl || this.getPlatformUrlForAsset(a.symbol, a.assetClass),
+          confidence: a.confidence || a.relevanceScore || 80,
+          action: a.action || 'long',
+          reasoning: a.reasoning || '',
+        }));
+        signal.strategies = aiResult.strategies || [];
+      } catch (err) {
+        console.warn('OpenAI call failed, falling back to local analysis:', err);
+        signal.hypothesis = this.generateLocalHypothesis(rawContent);
+        signal.confidence = Math.floor(Math.random() * 30) + 70;
+        signal.sentiment = this.detectSentiment(rawContent);
+        signal.discoveredAssets = this.discoverAndRouteAssets(rawContent);
+      }
+    } else {
+      // Local fallback
+      await this.simulateDelay(500);
+      signal.hypothesis = this.generateLocalHypothesis(rawContent);
+      signal.confidence = Math.floor(Math.random() * 30) + 70;
+      signal.sentiment = this.detectSentiment(rawContent);
+      signal.discoveredAssets = this.discoverAndRouteAssets(rawContent);
+    }
+
+    signal.pipelineSteps![1].status = 'completed';
+    signal.pipelineSteps![1].completedAt = new Date().toISOString();
     signal.status = 'signal_generated';
+    this.emitUpdate(signal);
 
-    // Step 3: Asset Discovery & Routing
-    signal.discoveredAssets = this.discoverAndRouteAssets(rawContent);
+    // Step 2: Mark hypothesis step
+    signal.pipelineSteps![2].status = 'running';
+    signal.pipelineSteps![2].startedAt = new Date().toISOString();
+    this.emitUpdate(signal);
+    await this.simulateDelay(300);
+    signal.pipelineSteps![2].status = 'completed';
+    signal.pipelineSteps![2].completedAt = new Date().toISOString();
+    signal.pipelineSteps![2].result = signal.hypothesis.slice(0, 80) + '...';
+    this.emitUpdate(signal);
+
+    // Step 3: Asset Discovery (already done above, just animate)
+    signal.pipelineSteps![3].status = 'running';
+    signal.pipelineSteps![3].startedAt = new Date().toISOString();
     signal.status = 'assets_discovered';
+    this.emitUpdate(signal);
+    await this.simulateDelay(400);
+    signal.pipelineSteps![3].status = 'completed';
+    signal.pipelineSteps![3].completedAt = new Date().toISOString();
+    signal.pipelineSteps![3].result = `${signal.discoveredAssets.length} assets found`;
     this.stats.assetsDiscovered += signal.discoveredAssets.length;
+    this.emitUpdate(signal);
 
     // Step 4: Route to connected brokerages
-    signal.routedTo = [...new Set(signal.discoveredAssets.map(a => a.platform))];
+    signal.pipelineSteps![4].status = 'running';
+    signal.pipelineSteps![4].startedAt = new Date().toISOString();
+    this.emitUpdate(signal);
+    await this.simulateDelay(200);
+    signal.routedTo = [...new Set(signal.discoveredAssets.map(a => a.platform))] as BrokerageId[];
     signal.status = 'routed';
+    signal.pipelineSteps![4].status = 'completed';
+    signal.pipelineSteps![4].completedAt = new Date().toISOString();
+    signal.pipelineSteps![4].result = `Routed to ${signal.routedTo.length} platforms`;
+    this.emitUpdate(signal);
 
     this.stats.totalSignalsProcessed++;
     return signal;
   }
 
-  private generateHypothesis(rawContent: string): string {
+  private emitUpdate(signal: PipelineSignal) {
+    if (this.onStepUpdate) {
+      this.onStepUpdate({ ...signal });
+    }
+  }
+
+  /**
+   * Call OpenAI API for real signal analysis + asset discovery
+   */
+  private async callOpenAI(rawContent: string): Promise<{
+    hypothesis: string;
+    confidence: number;
+    sentiment: 'bullish' | 'bearish' | 'neutral';
+    reasoning: string;
+    assets: any[];
+    strategies: AssetStrategy[];
+  }> {
+    const platformList = Object.entries(PLATFORM_DIRECTORY)
+      .map(([key, p]) => `${p.name} (${p.category}) → ${p.url}`)
+      .join('\n');
+
+    const prompt = `# YSM SIGNAL PIPELINE ANALYSIS
+
+You are Yoree's signal analysis engine. Analyze the following social intelligence and generate:
+1. A trading hypothesis
+2. Discovered assets across ALL asset classes with the EXACT platform to trade them
+3. Actionable strategies
+
+## INPUT SIGNAL:
+"${rawContent}"
+
+## AVAILABLE PLATFORMS:
+${platformList}
+
+## YOUR TASK:
+Analyze the signal and return ONLY valid JSON:
+
+\`\`\`json
+{
+  "hypothesis": "Clear, actionable trading hypothesis (2-3 sentences)",
+  "confidence": 85,
+  "sentiment": "bullish",
+  "reasoning": "Brief explanation of why this is the analysis",
+  "assets": [
+    {
+      "symbol": "ETH",
+      "name": "Ethereum",
+      "assetClass": "Crypto",
+      "platform": "binance",
+      "platformName": "Binance",
+      "platformUrl": "https://www.binance.com/en/trade/ETH_USDT",
+      "confidence": 90,
+      "action": "long",
+      "reasoning": "Why this asset is relevant"
+    }
+  ],
+  "strategies": [
+    {
+      "assetSymbol": "ETH",
+      "assetClass": "Crypto",
+      "action": "Long",
+      "entry": "Buy at current levels",
+      "exit": "Take profit at +15%",
+      "risk": "Stop loss at -5%",
+      "timeHorizon": "1-2 weeks",
+      "platform": "Binance",
+      "platformUrl": "https://www.binance.com/en/trade/ETH_USDT"
+    }
+  ]
+}
+\`\`\`
+
+IMPORTANT:
+- Discover assets across crypto, stocks, predictions, sports, DeFi, futures, forex as applicable
+- Each asset MUST have a real platform name and URL from the available platforms list
+- Include 3-8 relevant assets
+- Be specific about which exchange/platform to use for each asset
+- confidence is 0-100
+- sentiment is "bullish", "bearish", or "neutral"`;
+
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are the Yoree Signal Market AI engine. You analyze social signals and discover tradeable assets across all asset classes (crypto, stocks, predictions, sports, DeFi, futures, forex). Always respond with valid JSON only.',
+          },
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: 2000,
+        temperature: 0.7,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    const text = response.data.choices[0].message.content.trim();
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+      return {
+        hypothesis: parsed.hypothesis || 'Signal analyzed successfully.',
+        confidence: parsed.confidence || 75,
+        sentiment: parsed.sentiment || 'neutral',
+        reasoning: parsed.reasoning || '',
+        assets: parsed.assets || [],
+        strategies: parsed.strategies || [],
+      };
+    }
+
+    throw new Error('Failed to parse OpenAI response');
+  }
+
+  private getPlatformNameForAsset(platformOrClass: string): string {
+    const brokerage = this.brokerages.find(b => b.id === platformOrClass);
+    if (brokerage) return brokerage.displayName;
+    const dir = PLATFORM_DIRECTORY[platformOrClass];
+    if (dir) return dir.name;
+    return platformOrClass;
+  }
+
+  private getPlatformUrlForAsset(symbol: string, assetClass: string): string {
+    const classLower = assetClass.toLowerCase();
+    const routing = ASSET_ROUTING[classLower];
+    if (routing) {
+      const firstPlatform = routing.platforms[0];
+      return routing.platformUrls[firstPlatform] || '';
+    }
+    return '';
+  }
+
+  private detectSentiment(rawContent: string): 'bullish' | 'bearish' | 'neutral' {
+    const lower = rawContent.toLowerCase();
+    const bullish = ['bullish', 'moon', 'pump', 'buy', 'long', 'breakout', 'surge', 'undervalued', 'rally'].some(k => lower.includes(k));
+    const bearish = ['bearish', 'dump', 'sell', 'short', 'crash', 'dip', 'decline', 'overvalued'].some(k => lower.includes(k));
+    if (bullish && !bearish) return 'bullish';
+    if (bearish && !bullish) return 'bearish';
+    return 'neutral';
+  }
+
+  private generateLocalHypothesis(rawContent: string): string {
     const keywords = rawContent.toLowerCase().split(/\s+/);
     const hasBullish = keywords.some(k => ['bullish', 'moon', 'pump', 'buy', 'long', 'breakout', 'surge'].includes(k));
     const hasBearish = keywords.some(k => ['bearish', 'dump', 'sell', 'short', 'crash', 'dip', 'decline'].includes(k));
@@ -685,22 +997,22 @@ class PipelineService {
     // Prediction keywords → Kalshi/Polymarket
     if (/election|predict|forecast|fed\s*rate|gdp|cpi|will\s+\w+\s+(win|happen|pass)/.test(content)) {
       discovered.push(
-        { symbol: 'Event', name: 'Event Contract', assetClass: 'predictions', platform: 'kalshi', platformUrl: 'https://kalshi.com/markets', confidence: 85 },
-        { symbol: 'Event', name: 'Prediction Market', assetClass: 'predictions', platform: 'polymarket', platformUrl: 'https://polymarket.com', confidence: 80 },
+        { symbol: 'Event', name: 'Event Contract', assetClass: 'Predictions', platform: 'kalshi', platformName: 'Kalshi', platformUrl: 'https://kalshi.com/markets', confidence: 85 },
+        { symbol: 'Event', name: 'Prediction Market', assetClass: 'Predictions', platform: 'polymarket', platformName: 'Polymarket', platformUrl: 'https://polymarket.com', confidence: 80 },
       );
     }
 
     // Sports keywords → DraftKings
     if (/nfl|nba|mlb|nhl|soccer|game|bet|odds|score|match|fantasy/.test(content)) {
       discovered.push(
-        { symbol: 'Sports', name: 'Sportsbook', assetClass: 'sports', platform: 'draftkings', platformUrl: 'https://www.draftkings.com/lobby', confidence: 90 },
+        { symbol: 'Sports', name: 'Sportsbook', assetClass: 'Sports Bets', platform: 'draftkings', platformName: 'DraftKings', platformUrl: 'https://www.draftkings.com/lobby', confidence: 90 },
       );
     }
 
     // DeFi keywords → dYdX/Unlink
     if (/defi|swap|lend|borrow|yield|aave|uni|liquidity/.test(content)) {
       discovered.push(
-        { symbol: 'DeFi', name: 'Perp Futures', assetClass: 'defi', platform: 'dydx', platformUrl: 'https://dydx.exchange', confidence: 85 },
+        { symbol: 'DeFi', name: 'Perp Futures', assetClass: 'DeFi', platform: 'dydx', platformName: 'dYdX', platformUrl: 'https://dydx.exchange', confidence: 85 },
       );
     }
 
@@ -709,8 +1021,9 @@ class PipelineService {
       discovered.push({
         symbol: 'MON',
         name: 'Monad',
-        assetClass: 'crypto',
+        assetClass: 'Crypto',
         platform: 'unlink-private',
+        platformName: 'Unlink Private',
         platformUrl: 'https://docs.unlink.xyz',
         confidence: 75,
       });
@@ -727,6 +1040,141 @@ class PipelineService {
   }
 
   // ============================================================
+  // Signal Creation → Save to Portfolio / Markets
+  // ============================================================
+
+  /**
+   * Convert a pipeline signal into a proper Signal object and save it
+   * to localStorage so it shows up in Portfolio and Markets.
+   */
+  createSignalFromPipeline(pipelineSignal: PipelineSignal): any {
+    const now = new Date().toISOString();
+    const signalId = `signal-pipeline-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Determine underlying asset from discovered assets
+    const primaryAsset = pipelineSignal.discoveredAssets[0]?.symbol || 'MULTI';
+
+    const signal = {
+      id: signalId,
+      underlyingAsset: primaryAsset,
+      hypothesis: pipelineSignal.hypothesis,
+      dataBindings: [
+        {
+          feedId: 'pipeline-social',
+          feedName: `${pipelineSignal.source.toUpperCase()} Social Feed`,
+          feedType: 'social' as const,
+          bindingConfig: { normalization: 'standard', weight: 0.5 },
+        },
+        {
+          feedId: 'pipeline-ai',
+          feedName: `${pipelineSignal.processedBy} AI Analysis`,
+          feedType: 'sentiment' as const,
+          bindingConfig: { normalization: 'standard', weight: 0.5 },
+        },
+      ],
+      score: {
+        accuracy: pipelineSignal.confidence,
+        performance: Math.floor(pipelineSignal.confidence * 0.9),
+        consensus: Math.floor(pipelineSignal.confidence * 0.85),
+        composite: pipelineSignal.confidence,
+        lastUpdated: now,
+      },
+      quality: pipelineSignal.confidence,
+      creator: {
+        type: 'agent' as const,
+        id: 'ysm-pipeline',
+        name: 'YSM Pipeline',
+        isAgentAnnounced: true,
+      },
+      instances: [],
+      status: 'active' as const,
+      createdAt: now,
+      updatedAt: now,
+      assetBranches: this.buildAssetBranches(pipelineSignal.discoveredAssets),
+      metadata: {
+        source: pipelineSignal.source,
+        rawContent: pipelineSignal.rawContent,
+        sentiment: pipelineSignal.sentiment,
+        aiReasoning: pipelineSignal.aiReasoning,
+        strategies: pipelineSignal.strategies,
+        discoveredAssets: pipelineSignal.discoveredAssets,
+      },
+    };
+
+    // Save to localStorage - Portfolio
+    try {
+      const portfolioSignals = JSON.parse(localStorage.getItem('yoree_portfolio_signals') || '[]');
+      portfolioSignals.push({
+        signal,
+        addedAt: now,
+        source: 'pipeline',
+      });
+      localStorage.setItem('yoree_portfolio_signals', JSON.stringify(portfolioSignals));
+
+      // Save to active signals for Markets page
+      const activeSignals = JSON.parse(localStorage.getItem('yoree_active_signals') || '[]');
+      activeSignals.push(signal);
+      localStorage.setItem('yoree_active_signals', JSON.stringify(activeSignals));
+
+      // Dispatch event so other pages can refresh
+      window.dispatchEvent(new Event('signalCreated'));
+    } catch (e) {
+      console.warn('Failed to save pipeline signal:', e);
+    }
+
+    return signal;
+  }
+
+  private buildAssetBranches(assets: DiscoveredAsset[]): any {
+    const branches: any = {
+      crypto: [],
+      stocks: [],
+      futures: [],
+      forex: [],
+      predictions: [],
+      etfs: [],
+      bonds: [],
+      commodities: [],
+    };
+
+    assets.forEach((asset) => {
+      const classMap: Record<string, string> = {
+        'Crypto': 'crypto',
+        'crypto': 'crypto',
+        'Stocks': 'stocks',
+        'stocks': 'stocks',
+        'Predictions': 'predictions',
+        'predictions': 'predictions',
+        'Sports Bets': 'predictions',
+        'sports': 'predictions',
+        'DeFi': 'crypto',
+        'defi': 'crypto',
+        'Futures': 'futures',
+        'futures': 'futures',
+        'Forex': 'forex',
+        'forex': 'forex',
+      };
+      const branchKey = classMap[asset.assetClass] || 'crypto';
+      if (branches[branchKey]) {
+        branches[branchKey].push({
+          id: `asset-${asset.symbol}-${Date.now()}`,
+          symbol: asset.symbol,
+          name: asset.name,
+          assetClass: branchKey,
+          exchange: asset.platformName || asset.platform,
+          currentPrice: 0,
+          priceChange24h: 0,
+          volume24h: 0,
+          relevanceScore: asset.confidence,
+          connectionStatus: 'available' as const,
+        });
+      }
+    });
+
+    return branches;
+  }
+
+  // ============================================================
   // Stats & State
   // ============================================================
 
@@ -736,6 +1184,10 @@ class PipelineService {
 
   getRecentSignals(limit: number = 10): PipelineSignal[] {
     return this.signals.slice(0, limit);
+  }
+
+  hasApiKey(): boolean {
+    return !!this.apiKey;
   }
 
   private updateActiveConnections(): void {

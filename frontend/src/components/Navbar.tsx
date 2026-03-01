@@ -16,6 +16,7 @@ import {
   ListItemText,
   Divider,
   Stack,
+  Tooltip,
   useMediaQuery,
 } from '@mui/material';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
@@ -31,16 +32,20 @@ import {
   Groups as CommunityIcon,
   Hub as PipelineIcon,
   Lock as UnlinkIcon,
-  Menu as MenuIcon,
-  Close as CloseIcon,
-} from '@mui/icons-material';
+    Menu as MenuIcon,
+    Close as CloseIcon,
+    Shield as ShieldIcon,
+    ShieldOutlined as ShieldOutlinedIcon,
+  } from '@mui/icons-material';
 import { IconButton, useTheme as useMuiTheme } from '@mui/material';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTransactionLayer } from '../contexts/TransactionLayer';
 import MonadWalletConnect from './MonadWalletConnect';
 
 const Navbar: React.FC = () => {
   const location = useLocation();
   const { mode, toggleMode } = useTheme();
+  const { state: txState, togglePrivacy } = useTransactionLayer();
   const theme = useMuiTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -236,6 +241,64 @@ const Navbar: React.FC = () => {
                   {mode === 'dark' ? <LightModeIcon sx={{ fontSize: 18 }} /> : <DarkModeIcon sx={{ fontSize: 18 }} />}
                 </IconButton>
               </motion.div>
+
+              {/* Privacy Shield Toggle */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3, delay: 0.32 }}
+              >
+                <Tooltip title={txState.privacyEnabled ? 'Privacy ON — Transactions routed through Unlink' : 'Privacy OFF — Click to enable Unlink shielding'}>
+                  <IconButton
+                    onClick={togglePrivacy}
+                    size="small"
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: '10px',
+                      color: txState.privacyEnabled ? '#8b5cf6' : theme.palette.text.secondary,
+                      background: txState.privacyEnabled
+                        ? isDark ? 'rgba(139,92,246,0.12)' : 'rgba(139,92,246,0.08)'
+                        : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                      border: `1px solid ${txState.privacyEnabled ? 'rgba(139,92,246,0.3)' : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+                      '&:hover': {
+                        background: txState.privacyEnabled
+                          ? isDark ? 'rgba(139,92,246,0.18)' : 'rgba(139,92,246,0.12)'
+                          : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                        color: '#8b5cf6',
+                      },
+                      transition: 'all 0.2s ease',
+                      position: 'relative',
+                    }}
+                  >
+                    {txState.privacyEnabled ? <ShieldIcon sx={{ fontSize: 18 }} /> : <ShieldOutlinedIcon sx={{ fontSize: 18 }} />}
+                    {txState.privacyEnabled && (
+                      <Box
+                        sx={{
+                          position: 'absolute', top: 3, right: 3,
+                          width: 6, height: 6, borderRadius: '50%',
+                          background: '#8b5cf6',
+                          boxShadow: '0 0 6px rgba(139,92,246,0.6)',
+                        }}
+                      />
+                    )}
+                  </IconButton>
+                </Tooltip>
+              </motion.div>
+
+              {/* On-chain badge */}
+              {txState.totalRegistered > 0 && !isMobile && (
+                <Chip
+                  label={`⛓ ${txState.totalRegistered}`}
+                  size="small"
+                  sx={{
+                    height: 22, fontSize: '0.62rem', fontWeight: 800,
+                    background: '#10b98110', color: '#10b981',
+                    border: '1px solid #10b98120',
+                    cursor: 'default',
+                  }}
+                />
+              )}
 
               {/* Wallet */}
               <motion.div

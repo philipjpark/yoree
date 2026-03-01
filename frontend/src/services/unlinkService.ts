@@ -311,6 +311,61 @@ class UnlinkService {
   }
 
   // ============================================================
+  // Unlink SDK Integration (Future)
+  // ============================================================
+
+  /**
+   * When Unlink contracts are live on Monad, this method will use
+   * the real Unlink SDK for private transactions.
+   * 
+   * TODO: Replace with:
+   *   import { UnlinkClient } from '@aspect-build/unlink-sdk';
+   *   const client = new UnlinkClient({ rpcUrl, poolAddress });
+   *   await client.shield(amount, token);
+   *   await client.transfer(to, amount, token);
+   *   await client.unshield(amount, token, recipient);
+   */
+  private unlinkSDKAvailable: boolean = false;
+
+  /**
+   * Check if the real Unlink SDK contracts are live on Monad.
+   * Will return true once Unlink deploys their pool contracts.
+   */
+  isSDKAvailable(): boolean {
+    return this.unlinkSDKAvailable;
+  }
+
+  /**
+   * Route a transaction through the Unlink privacy layer.
+   * Currently simulated — will use real SDK when contracts are live.
+   */
+  async routePrivately(amount: string, note?: string): Promise<{ success: boolean; method: 'sdk' | 'simulated' }> {
+    if (this.unlinkSDKAvailable) {
+      // TODO: Real Unlink SDK call
+      // const client = new UnlinkClient({ ... });
+      // await client.shield(amount);
+      return { success: true, method: 'sdk' };
+    }
+
+    // Simulated privacy routing for now
+    await new Promise(resolve => setTimeout(resolve, 500));
+    if (this.state.account) {
+      const tx: UnlinkTransaction = {
+        id: `prv-${Date.now()}`,
+        type: 'transfer',
+        amount,
+        token: 'MON',
+        status: 'confirmed',
+        timestamp: new Date().toISOString(),
+        fromAddress: this.state.account.address,
+        toAddress: 'shielded',
+      };
+      this.state.transactions.unshift(tx);
+    }
+    return { success: true, method: 'simulated' };
+  }
+
+  // ============================================================
   // Utility
   // ============================================================
 

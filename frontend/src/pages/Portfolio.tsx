@@ -104,6 +104,16 @@ const Portfolio: React.FC = () => {
 
   useEffect(() => {
     loadPortfolio();
+
+    // Listen for signals created from Pipeline or CreateSignal
+    const handleSignalCreated = () => loadPortfolio();
+    window.addEventListener('signalCreated', handleSignalCreated);
+    window.addEventListener('storage', handleSignalCreated);
+    return () => {
+      window.removeEventListener('signalCreated', handleSignalCreated);
+      window.removeEventListener('storage', handleSignalCreated);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadPortfolio = async () => {
