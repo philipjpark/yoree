@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -47,13 +47,66 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
   const [isConnecting, setIsConnecting] = useState(false);
   const [walletState, setWalletState] = useState<MonadWalletState | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const theme = useMuiTheme();
   const isDark = theme.palette.mode === 'dark';
 
-  useEffect(() => {
+  // Refresh balance periodically and on signal creation
+  const refreshBalance = useCallback(async () => {
     const state = monadService.getWalletState();
-    if (state.isConnected) setWalletState(state);
+    if (state.isConnected && state.address) {
+      try {
+        setIsRefreshing(true);
+        const balance = await monadService.refreshBalance();
+        setWalletState(prev => prev ? { ...prev, balance } : null);
+      } catch (error) {
+        console.error('Failed to refresh balance:', error);
+      } finally {
+        setIsRefreshing(false);
+      }
+    }
   }, []);
+
+  useEffect(() => {
+    const checkWallet = () => {
+      const state = monadService.getWalletState();
+      if (state.isConnected) {
+        setWalletState(state);
+        refreshBalance();
+      } else {
+        setWalletState(null);
+      }
+    };
+
+    // Initial check
+    checkWallet();
+
+    // Check wallet state periodically
+    const walletCheckInterval = setInterval(checkWallet, 2000);
+
+    // Refresh balance every 10 seconds when connected
+    const balanceInterval = setInterval(() => {
+      if (monadService.getWalletState().isConnected) {
+        refreshBalance();
+      }
+    }, 10000);
+
+    // Listen for signal creation events to refresh immediately
+    const handleSignalRegistered = () => {
+      setTimeout(refreshBalance, 2000); // Wait 2s for transaction to confirm
+    };
+    window.addEventListener('signalRegistered', handleSignalRegistered);
+    window.addEventListener('signalCreated', handleSignalRegistered);
+    window.addEventListener('walletConnected', checkWallet);
+
+    return () => {
+      clearInterval(walletCheckInterval);
+      clearInterval(balanceInterval);
+      window.removeEventListener('signalRegistered', handleSignalRegistered);
+      window.removeEventListener('signalCreated', handleSignalRegistered);
+      window.removeEventListener('walletConnected', checkWallet);
+    };
+  }, [refreshBalance]);
 
   const wallets = [
     { name: 'MetaMask', description: 'Most popular browser wallet', icon: '🦊', color: '#F6851B', gradient: 'linear-gradient(135deg, #F6851B 0%, #E2761B 100%)', installUrl: 'https://metamask.io/' },
@@ -109,28 +162,34 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
         <Paper
           elevation={0}
           sx={{
-            display: 'flex', alignItems: 'center', gap: 0.8,
-            px: 1.5, py: 0.6, borderRadius: '10px', cursor: 'pointer',
-            background: isDark ? 'rgba(16,185,129,0.08)' : 'rgba(16,185,129,0.06)',
-            border: '1px solid rgba(16,185,129,0.15)',
+            display: 'flex', alignItems: 'center', gap: 1,
+            px: 2, py: 0.7, borderRadius: '12px', cursor: 'pointer',
+            background: isDark 
+              ? 'linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(16,185,129,0.08) 100%)'
+              : 'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.05) 100%)',
+            border: '1px solid rgba(16,185,129,0.2)',
             transition: 'all 0.2s',
-            '&:hover': { borderColor: 'rgba(16,185,129,0.3)', background: isDark ? 'rgba(16,185,129,0.12)' : 'rgba(16,185,129,0.08)' },
+            '&:hover': { 
+              borderColor: 'rgba(16,185,129,0.4)', 
+              background: isDark 
+                ? 'linear-gradient(135deg, rgba(16,185,129,0.18) 0%, rgba(16,185,129,0.12) 100%)'
+                : 'linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(16,185,129,0.08) 100%)',
+              transform: 'translateY(-1px)',
+              boxShadow: '0 4px 12px rgba(16,185,129,0.2)',
+            },
           }}
           onClick={() => setOpen(true)}
         >
-          <Box sx={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px rgba(16,185,129,0.5)' }} />
-          <Typography variant="body2" sx={{ fontWeight: 700, color: theme.palette.text.primary, fontSize: '0.78rem' }}>
-            {shortenAddress(walletState.address)}
-          </Typography>
-          <Chip
-            label={`${parseFloat(walletState.balance).toFixed(2)} MON`}
-            size="small"
-            sx={{
-              height: 20, fontSize: '0.65rem', fontWeight: 800,
-              background: '#10b98115', color: '#10b981',
-              border: '1px solid #10b98120',
-            }}
-          />
+          <WalletIcon sx={{ fontSize: 18, color: '#10b981' }} />
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 800, color: '#10b981', fontSize: '0.85rem', lineHeight: 1 }}>
+              {isRefreshing ? '...' : parseFloat(walletState.balance).toFixed(2)}
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#10b981', fontSize: '0.6rem', fontWeight: 700, opacity: 0.9, lineHeight: 1 }}>
+              MON
+            </Typography>
+          </Box>
+          <Box sx={{ width: 5, height: 5, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px rgba(16,185,129,0.5)' }} />
         </Paper>
 
         <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: dialogPaperSx }}>
