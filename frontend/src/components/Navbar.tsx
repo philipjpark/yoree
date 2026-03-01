@@ -53,7 +53,7 @@ const Navbar: React.FC = () => {
 
   const navItems = [
     { path: '/pipeline', label: 'Pipeline', icon: <PipelineIcon sx={{ fontSize: 18 }} />, badge: 'NEW' },
-    { path: '/unlink', label: 'Unlink', icon: <UnlinkIcon sx={{ fontSize: 18 }} />, badge: 'NEW' },
+    { path: '/unlink', label: 'Unlink + MON', icon: <UnlinkIcon sx={{ fontSize: 18 }} />, badge: 'NEW' },
     { path: '/signal-markets', label: 'Markets', icon: <ExchangeIcon sx={{ fontSize: 18 }} />, badge: null },
     { path: '/create-signal', label: 'Create', icon: <AddCircleIcon sx={{ fontSize: 18 }} />, badge: null },
     { path: '/portfolio', label: 'Portfolio', icon: <DashboardIcon sx={{ fontSize: 18 }} />, badge: null },
