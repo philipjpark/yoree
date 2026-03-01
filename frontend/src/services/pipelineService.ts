@@ -756,7 +756,7 @@ class PipelineService {
       }
     } else {
       // Local fallback
-      await this.simulateDelay(100);
+      await this.simulateDelay(50);
       signal.hypothesis = this.generateLocalHypothesis(rawContent);
       signal.confidence = Math.floor(Math.random() * 30) + 70;
       signal.sentiment = this.detectSentiment(rawContent);
@@ -772,7 +772,7 @@ class PipelineService {
     signal.pipelineSteps![2].status = 'running';
     signal.pipelineSteps![2].startedAt = new Date().toISOString();
     this.emitUpdate(signal);
-    await this.simulateDelay(100);
+    await this.simulateDelay(50);
     signal.pipelineSteps![2].status = 'completed';
     signal.pipelineSteps![2].completedAt = new Date().toISOString();
     signal.pipelineSteps![2].result = signal.hypothesis.slice(0, 80) + '...';
@@ -783,7 +783,7 @@ class PipelineService {
     signal.pipelineSteps![3].startedAt = new Date().toISOString();
     signal.status = 'assets_discovered';
     this.emitUpdate(signal);
-    await this.simulateDelay(100);
+    await this.simulateDelay(50);
     signal.pipelineSteps![3].status = 'completed';
     signal.pipelineSteps![3].completedAt = new Date().toISOString();
     signal.pipelineSteps![3].result = `${signal.discoveredAssets.length} assets found`;
@@ -794,7 +794,7 @@ class PipelineService {
     signal.pipelineSteps![4].status = 'running';
     signal.pipelineSteps![4].startedAt = new Date().toISOString();
     this.emitUpdate(signal);
-    await this.simulateDelay(50);
+    await this.simulateDelay(25);
     signal.routedTo = [...new Set(signal.discoveredAssets.map(a => a.platform))] as BrokerageId[];
     signal.status = 'routed';
     signal.pipelineSteps![4].status = 'completed';
