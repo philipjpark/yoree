@@ -213,12 +213,13 @@ const Pipeline: React.FC = () => {
       setStats(pipelineService.getStats());
       setActiveSignal(result);
 
-      // Stream the hypothesis text character by character for dynamism
+      // Stream the hypothesis text in batches for faster display
       setStreamingText('');
       const hypothesis = result.hypothesis;
-      for (let i = 0; i < hypothesis.length; i++) {
-        await new Promise(r => setTimeout(r, 0.75));
-        setStreamingText(prev => prev + hypothesis[i]);
+      const batchSize = 5; // Stream 5 characters at a time
+      for (let i = 0; i < hypothesis.length; i += batchSize) {
+        await new Promise(r => setTimeout(r, 0.2));
+        setStreamingText(prev => prev + hypothesis.slice(i, i + batchSize));
       }
       setIsStreaming(false);
 
@@ -277,11 +278,12 @@ const Pipeline: React.FC = () => {
       setStats(pipelineService.getStats());
       setActiveSignal(result);
 
-      // Stream the hypothesis
+      // Stream the hypothesis in batches for faster display
       const hypothesis = result.hypothesis;
-      for (let i = 0; i < hypothesis.length; i++) {
-        await new Promise(r => setTimeout(r, 0.75));
-        setStreamingText(prev => prev + hypothesis[i]);
+      const batchSize = 5; // Stream 5 characters at a time
+      for (let i = 0; i < hypothesis.length; i += batchSize) {
+        await new Promise(r => setTimeout(r, 0.2));
+        setStreamingText(prev => prev + hypothesis.slice(i, i + batchSize));
       }
       setIsStreaming(false);
 
