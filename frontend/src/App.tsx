@@ -21,6 +21,10 @@ import DataVault from './pages/DataVault';
 import SignalBacktester from './pages/SignalBacktester';
 import Community from './pages/Community';
 
+// YSM Bicameral Pipeline + Monad/Unlink
+import Pipeline from './pages/Pipeline';
+import UnlinkPrivateWallet from './components/UnlinkPrivateWallet';
+
 const AppContent: React.FC = () => {
   const { theme } = useTheme();
   
@@ -30,6 +34,8 @@ const AppContent: React.FC = () => {
         <Navbar />
         <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/pipeline" element={<Pipeline />} />
+              <Route path="/unlink" element={<UnlinkPrivateWallet />} />
               <Route path="/signal-markets" element={<SignalMarketsPage />} />
               <Route path="/create-signal" element={<CreateSignalPage />} />
               <Route path="/portfolio" element={<Portfolio />} />

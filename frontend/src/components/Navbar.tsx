@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -7,7 +7,16 @@ import {
   Box,
   Container,
   Chip,
-  Avatar
+  Avatar,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  Stack,
+  useMediaQuery,
 } from '@mui/material';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -16,249 +25,323 @@ import {
   TrendingUp as TrendingUpIcon,
   AddCircle as AddCircleIcon,
   Analytics as AnalyticsIcon,
-  DataObject as DataObjectIcon,
   AccountBalance as ExchangeIcon,
   LightMode as LightModeIcon,
   DarkMode as DarkModeIcon,
-  Groups as CommunityIcon
+  Groups as CommunityIcon,
+  Hub as PipelineIcon,
+  Lock as UnlinkIcon,
+  Menu as MenuIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { IconButton, useTheme as useMuiTheme } from '@mui/material';
 import { useTheme } from '../contexts/ThemeContext';
-import BNBWalletConnect from './BNBWalletConnect';
+import MonadWalletConnect from './MonadWalletConnect';
 
 const Navbar: React.FC = () => {
   const location = useLocation();
   const { mode, toggleMode } = useTheme();
   const theme = useMuiTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const isDark = theme.palette.mode === 'dark';
 
   const navItems = [
-    {
-      path: '/signal-markets',
-      label: 'Markets',
-      icon: <ExchangeIcon sx={{ fontSize: 20 }} />,
-      badge: null
-    },
-    {
-      path: '/create-signal',
-      label: 'Create Signal',
-      icon: <AddCircleIcon sx={{ fontSize: 20 }} />,
-      badge: null
-    },
-    {
-      path: '/portfolio',
-      label: 'Portfolio',
-      icon: <DashboardIcon sx={{ fontSize: 20 }} />,
-      badge: null
-    },
-    {
-      path: '/analytics',
-      label: 'Analytics',
-      icon: <AnalyticsIcon sx={{ fontSize: 20 }} />,
-      badge: null
-    },
-    {
-      path: '/data-feeds',
-      label: 'Data Feeds',
-      icon: <DataObjectIcon sx={{ fontSize: 20 }} />,
-      badge: null
-    },
-    {
-      path: '/community',
-      label: 'Community',
-      icon: <CommunityIcon sx={{ fontSize: 20 }} />,
-      badge: null
-    }
+    { path: '/pipeline', label: 'Pipeline', icon: <PipelineIcon sx={{ fontSize: 18 }} />, badge: 'NEW' },
+    { path: '/unlink', label: 'Unlink', icon: <UnlinkIcon sx={{ fontSize: 18 }} />, badge: 'NEW' },
+    { path: '/signal-markets', label: 'Markets', icon: <ExchangeIcon sx={{ fontSize: 18 }} />, badge: null },
+    { path: '/create-signal', label: 'Create', icon: <AddCircleIcon sx={{ fontSize: 18 }} />, badge: null },
+    { path: '/portfolio', label: 'Portfolio', icon: <DashboardIcon sx={{ fontSize: 18 }} />, badge: null },
+    { path: '/analytics', label: 'Analytics', icon: <AnalyticsIcon sx={{ fontSize: 18 }} />, badge: null },
+    { path: '/community', label: 'Community', icon: <CommunityIcon sx={{ fontSize: 18 }} />, badge: null },
   ];
 
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <AppBar 
-      position="static"
-      sx={{
-        background: theme.palette.mode === 'dark'
-          ? 'linear-gradient(135deg, #0A0E27 0%, #1A1F3A 100%)'
-          : 'linear-gradient(135deg, #ffffff 0%, #f5f7fa 100%)',
-        backdropFilter: 'blur(20px)',
-        borderBottom: theme.palette.mode === 'dark'
-          ? '1px solid rgba(102, 126, 234, 0.2)'
-          : '1px solid rgba(0, 0, 0, 0.1)',
-        boxShadow: theme.palette.mode === 'dark'
-          ? '0 4px 20px rgba(0, 0, 0, 0.3)'
-          : '0 4px 20px rgba(0, 0, 0, 0.1)'
-      }}
-    >
-      <Container maxWidth="xl">
-        <Toolbar disableGutters sx={{ py: 1 }}>
-          {/* Logo Section */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <Box
-              component={RouterLink}
-              to="/"
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                textDecoration: 'none',
-                color: 'inherit',
-                mr: 4
-              }}
+    <>
+      <AppBar
+        position="sticky"
+        elevation={0}
+        sx={{
+          background: isDark
+            ? 'rgba(10, 15, 30, 0.85)'
+            : 'rgba(255, 255, 255, 0.85)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+          zIndex: theme.zIndex.drawer + 1,
+        }}
+      >
+        <Container maxWidth="xl">
+          <Toolbar disableGutters sx={{ py: 0.5, minHeight: { xs: 56, md: 64 } }}>
+            {/* Logo */}
+            <motion.div
+              initial={{ opacity: 0, x: -16 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4 }}
             >
-              <Avatar
+              <Box
+                component={RouterLink}
+                to="/"
                 sx={{
-                  width: 40,
-                  height: 40,
-                  mr: 2,
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+                  display: 'flex',
+                  alignItems: 'center',
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  mr: { xs: 1, md: 3 },
                 }}
               >
-                <TrendingUpIcon />
-              </Avatar>
-              <Box>
-                <Typography
-                  variant="h6"
+                <Box
                   sx={{
-                    fontFamily: '"Inter", sans-serif',
-                    fontWeight: 800,
-                    background: theme.palette.mode === 'dark'
-                      ? 'linear-gradient(45deg, #ffffff 0%, #E2E8F0 100%)'
-                      : 'linear-gradient(45deg, #2C3E50 0%, #34495e 100%)',
-                    backgroundClip: 'text',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    lineHeight: 1.2,
-                    fontSize: '1.1rem'
+                    width: 36,
+                    height: 36,
+                    mr: 1.5,
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 16px rgba(99, 102, 241, 0.3)',
                   }}
                 >
-                  YOREE SIGNALS MARKET
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontFamily: '"Inter", sans-serif',
-                    fontSize: '0.65rem',
-                    color: 'rgba(255, 255, 255, 0.7)',
-                    fontWeight: 500,
-                    letterSpacing: '0.5px'
-                  }}
-                >
-                  The Intelligence Exchange
-                </Typography>
+                  <TrendingUpIcon sx={{ fontSize: 20, color: '#fff' }} />
+                </Box>
+                <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontWeight: 800,
+                      fontSize: '0.95rem',
+                      letterSpacing: '-0.01em',
+                      background: isDark
+                        ? 'linear-gradient(135deg, #fff 0%, #94a3b8 100%)'
+                        : 'linear-gradient(135deg, #1e293b 0%, #475569 100%)',
+                      backgroundClip: 'text',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    YOREE
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontSize: '0.6rem',
+                      color: theme.palette.text.secondary,
+                      fontWeight: 600,
+                      letterSpacing: '0.08em',
+                      lineHeight: 1,
+                    }}
+                  >
+                    SIGNALS MARKET
+                  </Typography>
+                </Box>
               </Box>
-            </Box>
-          </motion.div>
+            </motion.div>
 
-          {/* Navigation Items */}
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexGrow: 1 }}>
-            {navItems.map((item, index) => (
-              <motion.div
-                key={item.path}
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-              >
-                <Button
-                  component={RouterLink}
-                  to={item.path}
-                  startIcon={item.icon}
-                  sx={{
-                    position: 'relative',
-                    borderRadius: '12px',
-                    px: 3,
-                    py: 1.5,
-                    color: theme.palette.text.primary,
-                    fontWeight: 600,
-                    textTransform: 'none',
-                    fontSize: '0.95rem',
-                    background: isActive(item.path) 
-                      ? 'rgba(102, 126, 234, 0.2)' 
-                      : 'transparent',
-                    backdropFilter: isActive(item.path) ? 'blur(10px)' : 'none',
-                    border: isActive(item.path) 
-                      ? '1px solid rgba(102, 126, 234, 0.4)' 
-                      : '1px solid transparent',
-                    '&:hover': {
-                      background: 'rgba(102, 126, 234, 0.15)',
-                      backdropFilter: 'blur(10px)',
-                      border: '1px solid rgba(102, 126, 234, 0.3)',
-                      transform: 'translateY(-1px)',
-                      boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)'
-                    },
-                    transition: 'all 0.3s ease'
-                  }}
-                >
-                  {item.label}
-                  {item.badge && (
-                    <Chip
-                      label={item.badge}
+            {/* Desktop Nav */}
+            {!isMobile && (
+              <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexGrow: 1 }}>
+                {navItems.map((item, index) => (
+                  <motion.div
+                    key={item.path}
+                    initial={{ opacity: 0, y: -12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, delay: index * 0.05 }}
+                  >
+                    <Button
+                      component={RouterLink}
+                      to={item.path}
+                      startIcon={item.icon}
                       size="small"
                       sx={{
-                        ml: 1,
-                        height: 20,
-                        fontSize: '0.7rem',
-                        fontWeight: 'bold',
-                        background: item.badge === 'NEW' 
-                          ? 'linear-gradient(45deg, #ff6b6b 30%, #ff8e8e 90%)'
-                          : 'linear-gradient(45deg, #4facfe 30%, #00f2fe 90%)',
-                        color: 'white',
-                        '& .MuiChip-label': {
-                          px: 1
-                        }
+                        position: 'relative',
+                        borderRadius: '10px',
+                        px: 2,
+                        py: 0.8,
+                        color: isActive(item.path)
+                          ? '#6366f1'
+                          : theme.palette.text.secondary,
+                        fontWeight: isActive(item.path) ? 700 : 600,
+                        textTransform: 'none',
+                        fontSize: '0.82rem',
+                        background: isActive(item.path)
+                          ? isDark ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.06)'
+                          : 'transparent',
+                        border: `1px solid ${isActive(item.path) ? 'rgba(99, 102, 241, 0.2)' : 'transparent'}`,
+                        '&:hover': {
+                          background: isDark ? 'rgba(99, 102, 241, 0.08)' : 'rgba(99, 102, 241, 0.04)',
+                          color: '#6366f1',
+                        },
+                        transition: 'all 0.2s ease',
+                        '& .MuiButton-startIcon': {
+                          marginRight: 0.5,
+                        },
                       }}
-                    />
-                  )}
-                </Button>
+                    >
+                      {item.label}
+                      {item.badge && (
+                        <Box
+                          sx={{
+                            ml: 0.8,
+                            px: 0.6,
+                            py: 0.1,
+                            borderRadius: '4px',
+                            background: 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)',
+                            fontSize: '0.55rem',
+                            fontWeight: 800,
+                            color: '#fff',
+                            lineHeight: 1.4,
+                            letterSpacing: '0.05em',
+                          }}
+                        >
+                          {item.badge}
+                        </Box>
+                      )}
+                    </Button>
+                  </motion.div>
+                ))}
+              </Box>
+            )}
+
+            {/* Spacer on mobile */}
+            {isMobile && <Box sx={{ flexGrow: 1 }} />}
+
+            {/* Right side */}
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              {/* Theme Toggle */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3, delay: 0.3 }}
+              >
+                <IconButton
+                  onClick={toggleMode}
+                  size="small"
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '10px',
+                    color: theme.palette.text.secondary,
+                    background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                    border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+                    '&:hover': {
+                      background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                      color: '#f59e0b',
+                    },
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {mode === 'dark' ? <LightModeIcon sx={{ fontSize: 18 }} /> : <DarkModeIcon sx={{ fontSize: 18 }} />}
+                </IconButton>
               </motion.div>
-            ))}
-          </Box>
 
-          {/* Theme Toggle */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-          >
-            <IconButton
-              onClick={toggleMode}
-              sx={{
-                color: mode === 'dark' 
-                  ? theme.palette.text.primary 
-                  : '#2C3E50', // Darker color for moon icon in light mode
-                mr: 2,
-                backgroundColor: mode === 'dark'
-                  ? 'rgba(255, 255, 255, 0.1)'
-                  : 'rgba(0, 0, 0, 0.05)',
-                '&:hover': {
-                  background: mode === 'dark'
-                    ? 'rgba(255, 255, 255, 0.15)'
-                    : 'rgba(0, 0, 0, 0.1)',
-                  transform: 'scale(1.1)',
-                },
-                transition: 'all 0.3s ease',
-              }}
-            >
-              {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-            </IconButton>
-          </motion.div>
+              {/* Wallet */}
+              <motion.div
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.35, delay: 0.35 }}
+              >
+                <MonadWalletConnect variant="navbar" />
+              </motion.div>
 
-          {/* Wallet Connect */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-          >
-            <BNBWalletConnect variant="navbar" />
-          </motion.div>
-        </Toolbar>
-      </Container>
-    </AppBar>
+              {/* Mobile menu button */}
+              {isMobile && (
+                <IconButton
+                  onClick={() => setMobileOpen(true)}
+                  size="small"
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '10px',
+                    color: theme.palette.text.secondary,
+                    background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                    border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+                    ml: 0.5,
+                  }}
+                >
+                  <MenuIcon sx={{ fontSize: 20 }} />
+                </IconButton>
+              )}
+            </Stack>
+          </Toolbar>
+        </Container>
+      </AppBar>
+
+      {/* Mobile Drawer */}
+      <Drawer
+        anchor="right"
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        sx={{
+          '& .MuiDrawer-paper': {
+            width: 280,
+            background: isDark
+              ? 'linear-gradient(180deg, #0f172a 0%, #020617 100%)'
+              : 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+            borderLeft: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+          },
+        }}
+      >
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: theme.palette.text.primary }}>
+            Navigation
+          </Typography>
+          <IconButton onClick={() => setMobileOpen(false)} size="small">
+            <CloseIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+        </Box>
+        <Divider sx={{ opacity: 0.1 }} />
+        <List sx={{ px: 1, py: 1 }}>
+          {navItems.map((item) => (
+            <ListItem key={item.path} disablePadding sx={{ mb: 0.5 }}>
+              <ListItemButton
+                component={RouterLink}
+                to={item.path}
+                onClick={() => setMobileOpen(false)}
+                sx={{
+                  borderRadius: '12px',
+                  py: 1.2,
+                  background: isActive(item.path)
+                    ? isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)'
+                    : 'transparent',
+                  '&:hover': { background: isDark ? 'rgba(99,102,241,0.08)' : 'rgba(99,102,241,0.04)' },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 36, color: isActive(item.path) ? '#6366f1' : theme.palette.text.secondary }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.label}
+                  primaryTypographyProps={{
+                    fontWeight: isActive(item.path) ? 700 : 600,
+                    fontSize: '0.88rem',
+                    color: isActive(item.path) ? '#6366f1' : theme.palette.text.primary,
+                  }}
+                />
+                {item.badge && (
+                  <Box
+                    sx={{
+                      px: 0.8,
+                      py: 0.2,
+                      borderRadius: '5px',
+                      background: 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)',
+                      fontSize: '0.6rem',
+                      fontWeight: 800,
+                      color: '#fff',
+                    }}
+                  >
+                    {item.badge}
+                  </Box>
+                )}
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
+      </Drawer>
+    </>
   );
 };
 
-export default Navbar; 
+export default Navbar;
