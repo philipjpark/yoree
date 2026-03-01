@@ -226,7 +226,7 @@ class MonadContractService {
     const address = ws.isConnected ? ws.address : '0x0000000000000000000000000000000000000000';
 
     // Simulate on-chain delay (Monad: 400ms blocks, 800ms finality)
-    await new Promise(resolve => setTimeout(resolve, 400));
+    await new Promise(resolve => setTimeout(resolve, 200));
 
     return this.getDemoResult(params.hypothesis, address, params.timestamp);
   }
