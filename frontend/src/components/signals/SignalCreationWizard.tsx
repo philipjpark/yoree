@@ -42,6 +42,7 @@ import AgentIdentifier from './AgentIdentifier';
 import SignalSuccessScreen from './SignalSuccessScreen';
 import OrnateAgentProgress from './OrnateAgentProgress';
 import AvatarCreator, { AvatarData } from './AvatarCreator';
+import monadContractService from '../../services/monadContractService';
 
 const steps = ['Input Hypothesis', 'Select Data Feeds', 'Review & Create'];
 
@@ -284,6 +285,22 @@ const SignalCreationWizard: React.FC = () => {
         
         // Dispatch event to notify markets page to refresh
         window.dispatchEvent(new Event('signalCreated'));
+
+        // Auto-register on Monad (on-chain, best-effort)
+        try {
+          const privacyEnabled = localStorage.getItem('ysm_privacy_enabled') === 'true';
+          await monadContractService.autoRegister({
+            hypothesis: signal.hypothesis || hypothesis,
+            quality: signal.quality || 75,
+            sentiment: 'neutral',
+            assetCount: 1,
+            isPrivate: privacyEnabled,
+            source: 'create',
+            timestamp: signal.createdAt || new Date().toISOString(),
+          });
+        } catch {
+          // Non-critical
+        }
       } catch (e) {
         console.warn('Failed to save to portfolio:', e);
       }

@@ -13,6 +13,12 @@ module.exports = {
     }
   },
   networks: {
+    monadTestnet: {
+      url: "https://testnet-rpc.monad.xyz",
+      chainId: 10143,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: 50000000000, // 50 gwei — Monad Testnet gas price
+    },
     bscTestnet: {
       url: "https://data-seed-prebsc-1-s1.binance.org:8545/",
       chainId: 97,
@@ -29,4 +35,4 @@ module.exports = {
   etherscan: {
     apiKey: process.env.BSCSCAN_API_KEY
   }
-}; 
+};

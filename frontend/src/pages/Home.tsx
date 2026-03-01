@@ -327,7 +327,7 @@ const Home: React.FC = () => {
                     </Box>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 800, color: theme.palette.text.primary, fontSize: '1rem' }}>
-                        YSM Bicameral Pipeline
+                        YSM Signal Pipeline
                       </Typography>
                       <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
                         Social → AI → Signals → Assets → Execution

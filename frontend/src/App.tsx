@@ -21,17 +21,21 @@ import DataVault from './pages/DataVault';
 import SignalBacktester from './pages/SignalBacktester';
 import Community from './pages/Community';
 
-// YSM Bicameral Pipeline + Monad/Unlink
+// YSM Signal Pipeline + Monad/Unlink
 import Pipeline from './pages/Pipeline';
 import UnlinkPrivateWallet from './components/UnlinkPrivateWallet';
+import { TransactionLayerProvider } from './contexts/TransactionLayer';
+import PreFlightOverlay from './components/PreFlightOverlay';
 
 const AppContent: React.FC = () => {
   const { theme } = useTheme();
   
   return (
+    <TransactionLayerProvider>
     <Router>
       <div style={{ minHeight: '100vh', backgroundColor: theme.palette.background.default }}>
         <Navbar />
+        <PreFlightOverlay />
         <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/pipeline" element={<Pipeline />} />
@@ -55,6 +59,7 @@ const AppContent: React.FC = () => {
         </Routes>
       </div>
     </Router>
+    </TransactionLayerProvider>
   );
 };
 
