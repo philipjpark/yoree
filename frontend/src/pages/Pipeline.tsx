@@ -833,6 +833,7 @@ const Pipeline: React.FC = () => {
                       startIcon={isProcessing ? <CircularProgress size={18} color="inherit" /> : <SendIcon />}
                       sx={{
                         background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        color: '#fff',
                         fontWeight: 700, fontSize: '0.88rem', textTransform: 'none',
                         borderRadius: '12px', py: 1.2,
                         boxShadow: '0 8px 24px rgba(16,185,129,0.25)',
