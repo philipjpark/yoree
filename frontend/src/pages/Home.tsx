@@ -58,9 +58,9 @@ const Home: React.FC = () => {
   const [logoIndex, setLogoIndex] = useState(0);
 
   const logos = [
-    { src: yoreeLogo, alt: 'Yoree Signals Market', name: 'Yoree', link: '/signal-markets' },
+    { src: yoreeLogo, alt: 'Yoree Signals Market', name: 'Yoree', link: '/pipeline' },
     { src: minamLogo, alt: 'Minam Data Feeds', name: 'Minam', link: '/data-feeds' },
-    { src: syuzhetLogo, alt: 'Syuzhet Predictions', name: 'Syuzhet', link: '/create-signal' },
+    { src: syuzhetLogo, alt: 'Syuzhet Predictions', name: 'Syuzhet', link: '/pipeline' },
   ];
 
   useEffect(() => {
@@ -293,7 +293,7 @@ const Home: React.FC = () => {
                         <Button
                           variant="outlined"
                           size="large"
-                          onClick={() => navigate('/signal-markets')}
+                          onClick={() => navigate('/pipeline')}
                           startIcon={<ChartIcon />}
                           sx={{
                             px: 3.5, py: 1.3, fontSize: '0.95rem', fontWeight: 700, textTransform: 'none',
@@ -443,7 +443,7 @@ const Home: React.FC = () => {
                   </Typography>
                   <Button
                     variant="text"
-                    onClick={() => navigate('/signal-markets')}
+                    onClick={() => navigate('/pipeline')}
                     endIcon={<ArrowForwardIcon />}
                     sx={{ color: '#6366f1', fontWeight: 700, textTransform: 'none', fontSize: '0.82rem' }}
                   >
@@ -479,7 +479,7 @@ const Home: React.FC = () => {
                             '&:hover': { background: isDark ? 'rgba(99,102,241,0.04)' : 'rgba(99,102,241,0.02)' },
                             '&:last-child td': { border: 0 },
                           }}
-                          onClick={() => navigate(`/signal-markets?signal=${signal.id}`)}
+                          onClick={() => navigate(`/pipeline`)}
                         >
                           <TableCell sx={{ borderColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }}>
                             <Box>
@@ -539,7 +539,7 @@ const Home: React.FC = () => {
                           <TableCell align="right" sx={{ borderColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }}>
                             <Button
                               size="small"
-                              onClick={(e) => { e.stopPropagation(); navigate(`/signal-markets?signal=${signal.id}`); }}
+                              onClick={(e) => { e.stopPropagation(); navigate(`/pipeline`); }}
                               sx={{
                                 textTransform: 'none', fontSize: '0.75rem', fontWeight: 700,
                                 borderRadius: '8px', px: 1.5, minWidth: 'auto',
@@ -655,7 +655,7 @@ const Home: React.FC = () => {
                   <Button
                     variant="outlined"
                     size="large"
-                    onClick={() => navigate('/create-signal')}
+                    onClick={() => navigate('/pipeline')}
                     startIcon={<AddCircleIcon />}
                     sx={{
                       px: 4, py: 1.3, fontSize: '0.95rem', fontWeight: 700, textTransform: 'none',

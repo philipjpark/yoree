@@ -12,8 +12,6 @@ import Dashboard from './pages/Dashboard';
 import StrategyMarketplace from './components/strategy/StrategyMarketplace';
 import StrategyCreator from './components/strategy/StrategyCreator';
 import PYUSDSwap from './components/swap/PYUSDSwap';
-import SignalMarketsPage from './pages/SignalMarkets';
-import CreateSignalPage from './pages/CreateSignal';
 import DataFeeds from './pages/DataFeeds';
 import Portfolio from './pages/Portfolio';
 import Analytics from './pages/Analytics';
@@ -40,8 +38,6 @@ const AppContent: React.FC = () => {
               <Route path="/" element={<Home />} />
               <Route path="/pipeline" element={<Pipeline />} />
               <Route path="/unlink" element={<UnlinkPrivateWallet />} />
-              <Route path="/signal-markets" element={<SignalMarketsPage />} />
-              <Route path="/create-signal" element={<CreateSignalPage />} />
               <Route path="/portfolio" element={<Portfolio />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/data-feeds" element={<DataFeeds />} />
