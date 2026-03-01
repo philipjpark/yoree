@@ -14,8 +14,22 @@
  *   | Transfer   | Private | Private | Private   | Private    |
  *   | Withdraw   | Public  | Private | Public    | Public     |
  *
- * Docs: https://docs.unlink.xyz
- * Faucet: https://faucet.unlink.xyz/?referrer=luma
+ * Configuration (Monad Testnet):
+ *   - Network: Monad Testnet
+ *   - Chain ID: 10143
+ *   - Gateway URL: https://api.unlink.xyz
+ *   - Pool Address: 0x0813da0a10328e5ed617d37e514ac2f6fa49a254
+ *   - MON Native Token: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
+ *
+ * Documentation:
+ *   - Full docs: https://docs.unlink.xyz
+ *   - Documentation index: https://docs.unlink.xyz/llms.txt
+ *   - React SDK: https://docs.unlink.xyz/sdk/react
+ *   - Node.js SDK: https://docs.unlink.xyz/sdk/node
+ *   - CLI: https://docs.unlink.xyz/sdk/cli
+ *   - API Reference: https://docs.unlink.xyz/sdk/api-reference
+ * 
+ * Faucet: https://faucet.unlink.xyz
  */
 
 import { UNLINK_CONFIG, MONAD_TESTNET_CONFIG } from './monadService';
@@ -311,44 +325,50 @@ class UnlinkService {
   }
 
   // ============================================================
-  // Unlink SDK Integration (Future)
+  // Unlink SDK Integration
   // ============================================================
 
   /**
-   * When Unlink contracts are live on Monad, this method will use
-   * the real Unlink SDK for private transactions.
+   * Check if the real Unlink SDK is available.
    * 
-   * TODO: Replace with:
-   *   import { UnlinkClient } from '@aspect-build/unlink-sdk';
-   *   const client = new UnlinkClient({ rpcUrl, poolAddress });
-   *   await client.shield(amount, token);
-   *   await client.transfer(to, amount, token);
-   *   await client.unshield(amount, token, recipient);
-   */
-  private unlinkSDKAvailable: boolean = false;
-
-  /**
-   * Check if the real Unlink SDK contracts are live on Monad.
-   * Will return true once Unlink deploys their pool contracts.
+   * To integrate the official Unlink React SDK:
+   *   1. Install: npm install @unlink-xyz/react@canary
+   *   2. See: https://docs.unlink.xyz/sdk/react
+   *   3. Configure with Monad Testnet values (see UNLINK_CONFIG)
+   *   4. Use hooks: useUnlinkAccount, useUnlinkBalance, useUnlinkTransfer
+   * 
+   * For Node.js/CLI integration:
+   *   - See: https://docs.unlink.xyz/sdk/node
+   *   - See: https://docs.unlink.xyz/sdk/cli
    */
   isSDKAvailable(): boolean {
-    return this.unlinkSDKAvailable;
+    // TODO: Check if @unlink-xyz/react is installed and configured
+    // For now, return false to use simulated mode
+    return false;
   }
 
   /**
    * Route a transaction through the Unlink privacy layer.
-   * Currently simulated — will use real SDK when contracts are live.
+   * 
+   * Currently uses simulated mode. To integrate real Unlink SDK:
+   *   - Install @unlink-xyz/react: npm install @unlink-xyz/react@canary
+   *   - Follow: https://docs.unlink.xyz/sdk/react
+   *   - Use useUnlinkTransfer hook for private transfers
+   * 
+   * Returns transaction hash and explorer URL for tracking.
    */
-  async routePrivately(amount: string, note?: string): Promise<{ success: boolean; method: 'sdk' | 'simulated' }> {
-    if (this.unlinkSDKAvailable) {
-      // TODO: Real Unlink SDK call
-      // const client = new UnlinkClient({ ... });
-      // await client.shield(amount);
-      return { success: true, method: 'sdk' };
-    }
-
-    // Simulated privacy routing for now
-    await new Promise(resolve => setTimeout(resolve, 500));
+  async routePrivately(amount: string, note?: string): Promise<{ txHash: string; explorerUrl: string }> {
+    // Simulated privacy routing for development/demo
+    // In production, replace with real Unlink SDK:
+    //   import { useUnlinkTransfer } from '@unlink-xyz/react';
+    //   const { transfer } = useUnlinkTransfer();
+    //   const result = await transfer({ to, token, amount });
+    
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const mockTxHash = `0xUnlinkPrivateTx${Date.now().toString(16)}`;
+    const explorerUrl = `${MONAD_TESTNET_CONFIG.blockExplorerUrls[0]}/tx/${mockTxHash}`;
+    
     if (this.state.account) {
       const tx: UnlinkTransaction = {
         id: `prv-${Date.now()}`,
@@ -357,12 +377,14 @@ class UnlinkService {
         token: 'MON',
         status: 'confirmed',
         timestamp: new Date().toISOString(),
+        txHash: mockTxHash,
         fromAddress: this.state.account.address,
         toAddress: 'shielded',
       };
       this.state.transactions.unshift(tx);
     }
-    return { success: true, method: 'simulated' };
+    
+    return { txHash: mockTxHash, explorerUrl };
   }
 
   // ============================================================

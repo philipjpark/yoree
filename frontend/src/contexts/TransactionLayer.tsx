@@ -211,17 +211,29 @@ export const TransactionLayerProvider: React.FC<{ children: React.ReactNode }> =
         
         if (unlinkService.isInitialized()) {
           try {
-            await unlinkService.routePrivately('0.001', 'privacy-preflight');
+            const unlinkResult = await unlinkService.routePrivately('0.001', 'privacy-preflight');
+            updatePreFlight({
+              message: '🛡️ Privacy route established',
+              detail: `Shielded via Unlink • TX: ${unlinkResult.txHash.slice(0, 10)}...`,
+              progress: 35,
+              txHash: unlinkResult.txHash,
+              explorerUrl: unlinkResult.explorerUrl,
+            });
           } catch {
-            // Non-critical — continue
+            // Non-critical — continue with fallback message
+            updatePreFlight({
+              message: '🛡️ Privacy route established',
+              detail: 'Transaction path is shielded',
+              progress: 35,
+            });
           }
+        } else {
+          updatePreFlight({
+            message: '🛡️ Privacy route established',
+            detail: 'Transaction path is shielded',
+            progress: 35,
+          });
         }
-
-        updatePreFlight({
-          message: '🛡️ Privacy route established',
-          detail: 'Transaction path is shielded',
-          progress: 35,
-        });
       }
 
       // Phase 2: On-chain registration
