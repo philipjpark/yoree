@@ -701,17 +701,6 @@ cargo test
 - 📖 [Minam Documentation](https://github.com/philipjpark/minam#readme)
 - 📖 [Syuzhet Documentation](https://github.com/philipjpark/syuzhet#readme)
 
-### 🎬 Live Demo
-
-<div align="center">
-
-[![Yoree Signal Markets Live Demo](https://img.youtube.com/vi/H3kxrSkkpbg/maxresdefault.jpg)](https://www.youtube.com/watch?v=H3kxrSkkpbg)
-
-*Watch the short-form demo. Long-form demo coming soon!*
-
-
-</div>
-
 ### Blockchain Networks
 - [Monad Documentation](https://docs.monad.xyz) - EVM-compatible L1 with 400ms blocks
 - [Monad Testnet Explorer](https://testnet.monadscan.com) - Block explorer for Monad Testnet
