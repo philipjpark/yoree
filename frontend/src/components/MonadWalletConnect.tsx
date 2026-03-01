@@ -497,7 +497,7 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
                 }}
               />
               <Chip
-                label="Unlink Faucet"
+                label="Unlink + MON"
                 size="small"
                 icon={<LockIcon sx={{ fontSize: '10px !important', color: '#8b5cf6 !important' }} />}
                 onClick={() => window.open('https://faucet.unlink.xyz/?referrer=luma', '_blank')}
