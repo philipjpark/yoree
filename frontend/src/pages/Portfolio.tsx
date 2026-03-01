@@ -669,7 +669,7 @@ const Portfolio: React.FC = () => {
                           <Tooltip title="Trade">
                             <IconButton
                               size="small"
-                              onClick={() => navigate(`/signal-markets?signal=${holding.signal.id}`)}
+                              onClick={() => navigate(`/pipeline`)}
                             >
                               <ChartIcon sx={{ fontSize: 20 }} />
                             </IconButton>
@@ -894,7 +894,7 @@ const Portfolio: React.FC = () => {
                   variant="contained"
                   onClick={() => {
                     setShowDetails(false);
-                    navigate(`/signal-markets?signal=${selectedHolding.signal.id}`);
+                    navigate(`/pipeline`);
                   }}
                   sx={{
                     borderRadius: '12px',

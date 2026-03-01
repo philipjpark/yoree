@@ -250,12 +250,8 @@ const DataFeeds: React.FC = () => {
     setShowFeedDialog(true);
   };
 
-  const handleCreateSignal = (feed1?: MinamFeed, feed2?: MinamFeed) => {
-    if (feed1 && feed2) {
-      navigate(`/create-signal?feed1=${feed1.id}&feed2=${feed2.id}`);
-    } else {
-      navigate('/create-signal');
-    }
+  const handleCreateSignal = () => {
+    navigate('/pipeline');
   };
 
   const getAssetClassForFeed = (feed: MinamFeed): SignalAssetClass | null => {
@@ -778,7 +774,7 @@ const DataFeeds: React.FC = () => {
                   variant="contained"
                   onClick={() => {
                     setShowFeedDialog(false);
-                    handleCreateSignal(selectedFeed);
+                    handleCreateSignal();
                   }}
                   startIcon={<AddCircleIcon />}
                   sx={{

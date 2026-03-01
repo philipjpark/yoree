@@ -1017,7 +1017,7 @@ const Pipeline: React.FC = () => {
                             <Button
                               size="small"
                               variant="outlined"
-                              onClick={() => navigate('/signal-markets')}
+                              onClick={() => navigate('/pipeline')}
                               startIcon={<ChartIcon sx={{ fontSize: 14 }} />}
                               sx={{
                                 flex: 1, textTransform: 'none', fontSize: '0.72rem', borderRadius: '10px', fontWeight: 700,
@@ -1671,7 +1671,7 @@ const Pipeline: React.FC = () => {
           </Button>
           <Button
             variant="outlined"
-            onClick={() => { setShowCreateDialog(false); navigate('/signal-markets'); }}
+            onClick={() => { setShowCreateDialog(false); navigate('/pipeline'); }}
             startIcon={<ChartIcon />}
             sx={{
               px: 3, py: 1.2, borderRadius: '12px', fontWeight: 700, textTransform: 'none',

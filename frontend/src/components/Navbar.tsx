@@ -24,9 +24,7 @@ import { motion } from 'framer-motion';
 import {
   Dashboard as DashboardIcon,
   TrendingUp as TrendingUpIcon,
-  AddCircle as AddCircleIcon,
   Analytics as AnalyticsIcon,
-  AccountBalance as ExchangeIcon,
   LightMode as LightModeIcon,
   DarkMode as DarkModeIcon,
   Groups as CommunityIcon,
@@ -54,8 +52,6 @@ const Navbar: React.FC = () => {
   const navItems = [
     { path: '/pipeline', label: 'Pipeline', icon: <PipelineIcon sx={{ fontSize: 18 }} />, badge: 'NEW' },
     { path: '/unlink', label: 'Unlink + MON', icon: <UnlinkIcon sx={{ fontSize: 18 }} />, badge: 'NEW' },
-    { path: '/signal-markets', label: 'Markets', icon: <ExchangeIcon sx={{ fontSize: 18 }} />, badge: null },
-    { path: '/create-signal', label: 'Create', icon: <AddCircleIcon sx={{ fontSize: 18 }} />, badge: null },
     { path: '/portfolio', label: 'Portfolio', icon: <DashboardIcon sx={{ fontSize: 18 }} />, badge: null },
     { path: '/analytics', label: 'Analytics', icon: <AnalyticsIcon sx={{ fontSize: 18 }} />, badge: null },
     { path: '/community', label: 'Community', icon: <CommunityIcon sx={{ fontSize: 18 }} />, badge: null },
