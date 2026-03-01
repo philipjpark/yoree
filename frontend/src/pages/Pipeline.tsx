@@ -1185,7 +1185,7 @@ const Pipeline: React.FC = () => {
                                 }}>
                                   {meta.icon}
                                 </Box>
-                                <Typography variant="overline" sx={{ fontWeight: 800, color: meta.color, letterSpacing: '0.1em', fontSize: '0.62rem', lineHeight: 1 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 900, color: meta.color, letterSpacing: '0.05em', fontSize: '0.85rem', lineHeight: 1.2 }}>
                                   {meta.label}
                                 </Typography>
                                 <Chip
