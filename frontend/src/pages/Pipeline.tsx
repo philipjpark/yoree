@@ -150,9 +150,18 @@ const Pipeline: React.FC = () => {
       setShowOtherDialog(true);
       return;
     }
-    pipelineService.connectSocial(platform, `demo_${platform}`);
+    const connection = socialConnections.find(s => s.platform === platform);
+    if (connection?.isConnected) {
+      // Disconnect if already connected
+      pipelineService.disconnectSocial(platform);
+    } else {
+      // Connect if not connected
+      pipelineService.connectSocial(platform, `demo_${platform}`);
+    }
     setSocialConnections(pipelineService.getSocialConnections());
     setStats(pipelineService.getStats());
+    // Also update selectedSource to sync with YSM Engine chips
+    setSelectedSource(platform);
   };
 
   const handleOtherSourceSubmit = () => {
@@ -661,15 +670,17 @@ const Pipeline: React.FC = () => {
                         sx={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                           p: 1.5, borderRadius: '12px',
-                          background: social.isConnected
+                          background: selectedSource === social.platform
+                            ? `${social.color}15`
+                            : social.isConnected
                             ? `${social.color}10`
                             : isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
-                          border: `1px solid ${social.isConnected ? `${social.color}30` : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}`,
+                          border: `1px solid ${selectedSource === social.platform ? social.color : social.isConnected ? `${social.color}30` : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}`,
                           cursor: 'pointer',
                           transition: 'all 0.25s ease',
                           '&:hover': { borderColor: social.color, background: `${social.color}08` },
                         }}
-                        onClick={() => !social.isConnected && handleConnectSocial(social.platform)}
+                        onClick={() => handleConnectSocial(social.platform)}
                       >
                         <Stack direction="row" alignItems="center" spacing={1.5}>
                           <Box sx={{
@@ -791,14 +802,37 @@ const Pipeline: React.FC = () => {
                             if (platform === 'other') {
                               setShowOtherDialog(true);
                             } else {
+                              // Toggle connection and update selectedSource
+                              const connection = socialConnections.find(s => s.platform === platform);
+                              if (connection?.isConnected) {
+                                pipelineService.disconnectSocial(platform);
+                              } else {
+                                pipelineService.connectSocial(platform, `demo_${platform}`);
+                              }
+                              setSocialConnections(pipelineService.getSocialConnections());
+                              setStats(pipelineService.getStats());
                               setSelectedSource(platform);
                             }
                           }}
                           sx={{
                             fontWeight: 700, fontSize: '0.65rem', height: 24,
-                            background: selectedSource === platform ? '#10b98120' : 'transparent',
-                            border: `1px solid ${selectedSource === platform ? '#10b981' : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
-                            color: selectedSource === platform ? '#10b981' : theme.palette.text.secondary,
+                            background: selectedSource === platform 
+                              ? '#10b98120' 
+                              : conn?.isConnected 
+                              ? `${conn.color}10` 
+                              : 'transparent',
+                            border: `1px solid ${
+                              selectedSource === platform 
+                                ? '#10b981' 
+                                : conn?.isConnected 
+                                ? `${conn.color}40` 
+                                : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
+                            }`,
+                            color: selectedSource === platform 
+                              ? '#10b981' 
+                              : conn?.isConnected 
+                              ? conn.color 
+                              : theme.palette.text.secondary,
                           }}
                         />
                       );
@@ -865,7 +899,7 @@ const Pipeline: React.FC = () => {
                         },
                       }}
                     >
-                      {isProcessing ? 'Generating...' : 'Generate from My Socials'}
+                      {isProcessing ? 'Generating...' : 'Signals from My Socials'}
                     </Button>
                   </Stack>
 
