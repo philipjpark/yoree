@@ -61,21 +61,16 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
     { name: 'WalletConnect', description: 'Scan with any wallet', icon: '🔗', color: '#3B99FC', gradient: 'linear-gradient(135deg, #3B99FC 0%, #2E7DD2 100%)', installUrl: 'https://walletconnect.com/' },
   ];
 
-  const handleWalletSelect = async () => {
-    setIsConnecting(true);
-    try {
-      const state = await monadService.connectWallet();
-      setWalletState(state);
-      await unlinkService.createAccount(state.address);
-      if (onConnect) onConnect(state.address);
-      setOpen(false);
-      if (onClose) onClose();
-    } catch (error: any) {
-      console.error('Failed to connect wallet:', error);
-      if (error.message.includes('No Web3 provider')) window.open('https://metamask.io/', '_blank');
-    } finally {
-      setIsConnecting(false);
+  const handleWalletSelect = async (walletName?: string) => {
+    // Disabled automatic connection - user must manually connect via wallet extension
+    // This prevents automatic MetaMask popup when clicking wallet options
+    if (walletName === 'MetaMask' && window.ethereum) {
+      // Just open MetaMask extension page or do nothing
+      console.log('MetaMask detected. Please connect manually via the extension.');
+      return;
     }
+    // For other wallets, just show install links or do nothing
+    console.log(`Please connect ${walletName || 'your wallet'} manually.`);
   };
 
   const handleDisconnect = () => {
@@ -443,7 +438,7 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
                   >
                     <ListItem disablePadding>
                       <ListItemButton
-                        onClick={handleWalletSelect}
+                        onClick={() => handleWalletSelect(wallet.name)}
                         disabled={isConnecting}
                         sx={{ px: 2, py: 1.5 }}
                       >
