@@ -115,45 +115,18 @@ class MonadService {
   // Wallet Connection
   // ============================================================
   async connectWallet(): Promise<MonadWalletState> {
-    const provider = await this.ensureProvider();
-
-    try {
-      // Request account access
-      await provider.send('eth_requestAccounts', []);
-      this.signer = await provider.getSigner();
-      const address = await this.signer.getAddress();
-      const network = await provider.getNetwork();
-      const chainId = Number(network.chainId);
-
-      // Check if on Monad Testnet
-      if (chainId !== MONAD_TESTNET_CONFIG.chainId) {
-        await this.switchToMonadTestnet();
-      }
-
-      // Get balance
-      const balance = await provider.getBalance(address);
-
-      // Initialize Unlink Pool contract
-      this.unlinkPool = new ethers.Contract(
-        UNLINK_CONFIG.poolAddress,
-        UNLINK_POOL_ABI,
-        this.signer
-      );
-
-      this.walletState = {
-        address,
-        balance: ethers.formatEther(balance),
-        chainId: MONAD_TESTNET_CONFIG.chainId,
-        isConnected: true,
-        isMonadTestnet: true,
-      };
-
-      console.log('✅ Connected to Monad Testnet:', address);
-      return this.walletState;
-    } catch (error) {
-      console.error('❌ Failed to connect wallet:', error);
-      throw error;
-    }
+    // ⚠️ Wallet connections are disabled in this environment.
+    // This is intentional for development / demo mode so that users
+    // cannot connect real wallets until production.
+    //
+    // To re-enable wallet connections for production:
+    // - Restore the original implementation of this method that
+    //   calls `eth_requestAccounts` and initializes signer / balance.
+    //
+    // For now, always throw a clear error without touching the provider.
+    const error = new Error('Monad wallet connections are disabled in this environment.');
+    console.warn(error.message);
+    throw error;
   }
 
   async switchToMonadTestnet(): Promise<void> {
