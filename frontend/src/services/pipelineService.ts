@@ -30,7 +30,7 @@ const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY || '';
 // Types
 // ============================================================
 
-export type SocialPlatform = 'telegram' | 'tiktok' | 'x' | 'discord' | 'reddit' | 'youtube' | 'google-trends' | 'substack' | 'medium' | 'other';
+export type SocialPlatform = 'telegram' | 'tiktok' | 'x' | 'discord' | 'reddit' | 'youtube' | 'google-trends' | 'substack' | 'medium' | 'whatsapp' | 'kakao' | 'other';
 export type AIModel = 'gpt-4o' | 'gemma-3-4b' | 'ysm-proprietary' | 'custom';
 export type BrokerageId = 
   | 'unlink-private'
@@ -254,6 +254,8 @@ export const PLATFORM_DIRECTORY: Record<string, { name: string; url: string; cat
 const DEFAULT_SOCIAL_CONNECTIONS: SocialConnection[] = [
   { platform: 'x',              displayName: 'X (Twitter)',     icon: '𝕏',  isConnected: false, color: '#000000', url: 'https://x.com' },
   { platform: 'telegram',       displayName: 'Telegram',        icon: '✈️', isConnected: false, color: '#0088cc', url: 'https://telegram.org' },
+  { platform: 'whatsapp',       displayName: 'WhatsApp',        icon: '💬', isConnected: false, color: '#25D366', url: 'https://web.whatsapp.com' },
+  { platform: 'kakao',          displayName: 'Kakao',           icon: '💬', isConnected: false, color: '#FEE500', url: 'https://www.kakaocorp.com' },
   { platform: 'tiktok',         displayName: 'TikTok',          icon: '🎵', isConnected: false, color: '#ff0050', url: 'https://tiktok.com' },
   { platform: 'discord',        displayName: 'Discord',         icon: '💬', isConnected: false, color: '#5865F2', url: 'https://discord.com' },
   { platform: 'reddit',         displayName: 'Reddit',          icon: '🔴', isConnected: false, color: '#FF4500', url: 'https://reddit.com' },
