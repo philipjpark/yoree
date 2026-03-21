@@ -34,7 +34,7 @@ import {
     Close as CloseIcon,
     Shield as ShieldIcon,
     ShieldOutlined as ShieldOutlinedIcon,
-  } from '@mui/icons-material';
+} from '@mui/icons-material';
 import { IconButton, useTheme as useMuiTheme } from '@mui/material';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTransactionLayer } from '../contexts/TransactionLayer';
@@ -61,39 +61,39 @@ const Navbar: React.FC = () => {
 
   return (
     <>
-      <AppBar
+    <AppBar 
         position="sticky"
         elevation={0}
-        sx={{
+      sx={{
           background: isDark
             ? 'rgba(10, 15, 30, 0.85)'
             : 'rgba(255, 255, 255, 0.85)',
           backdropFilter: 'blur(20px) saturate(180%)',
           borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
           zIndex: theme.zIndex.drawer + 1,
-        }}
-      >
-        <Container maxWidth="xl">
+      }}
+    >
+      <Container maxWidth="xl">
           <Toolbar disableGutters sx={{ py: 0.5, minHeight: { xs: 56, md: 64 } }}>
             {/* Logo */}
-            <motion.div
+          <motion.div
               initial={{ opacity: 0, x: -16 }}
-              animate={{ opacity: 1, x: 0 }}
+            animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4 }}
-            >
-              <Box
-                component={RouterLink}
-                to="/"
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  textDecoration: 'none',
-                  color: 'inherit',
+          >
+            <Box
+              component={RouterLink}
+              to="/"
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                textDecoration: 'none',
+                color: 'inherit',
                   mr: { xs: 1, md: 3 },
-                }}
-              >
+              }}
+            >
                 <Box
-                  sx={{
+                sx={{
                     width: 36,
                     height: 36,
                     mr: 1.5,
@@ -103,61 +103,61 @@ const Navbar: React.FC = () => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     boxShadow: '0 4px 16px rgba(99, 102, 241, 0.3)',
-                  }}
-                >
+                }}
+              >
                   <TrendingUpIcon sx={{ fontSize: 20, color: '#fff' }} />
                 </Box>
                 <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                  <Typography
-                    variant="h6"
-                    sx={{
-                      fontWeight: 800,
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 800,
                       fontSize: '0.95rem',
                       letterSpacing: '-0.01em',
                       background: isDark
                         ? 'linear-gradient(135deg, #fff 0%, #94a3b8 100%)'
                         : 'linear-gradient(135deg, #1e293b 0%, #475569 100%)',
-                      backgroundClip: 'text',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      lineHeight: 1.2,
-                    }}
-                  >
+                    backgroundClip: 'text',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    lineHeight: 1.2,
+                  }}
+                >
                     YOREE
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    sx={{
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
                       fontSize: '0.6rem',
                       color: theme.palette.text.secondary,
                       fontWeight: 600,
                       letterSpacing: '0.08em',
                       lineHeight: 1,
-                    }}
-                  >
+                  }}
+                >
                     SIGNALS MARKET
-                  </Typography>
-                </Box>
+                </Typography>
               </Box>
-            </motion.div>
+            </Box>
+          </motion.div>
 
             {/* Desktop Nav */}
             {!isMobile && (
               <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexGrow: 1 }}>
-                {navItems.map((item, index) => (
-                  <motion.div
-                    key={item.path}
+            {navItems.map((item, index) => (
+              <motion.div
+                key={item.path}
                     initial={{ opacity: 0, y: -12 }}
-                    animate={{ opacity: 1, y: 0 }}
+                animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, delay: index * 0.05 }}
-                  >
-                    <Button
-                      component={RouterLink}
-                      to={item.path}
-                      startIcon={item.icon}
+              >
+                <Button
+                  component={RouterLink}
+                  to={item.path}
+                  startIcon={item.icon}
                       size="small"
-                      sx={{
-                        position: 'relative',
+                  sx={{
+                    position: 'relative',
                         borderRadius: '10px',
                         px: 2,
                         py: 0.8,
@@ -165,26 +165,26 @@ const Navbar: React.FC = () => {
                           ? '#6366f1'
                           : theme.palette.text.secondary,
                         fontWeight: isActive(item.path) ? 700 : 600,
-                        textTransform: 'none',
+                    textTransform: 'none',
                         fontSize: '0.82rem',
-                        background: isActive(item.path)
+                    background: isActive(item.path) 
                           ? isDark ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.06)'
-                          : 'transparent',
+                      : 'transparent',
                         border: `1px solid ${isActive(item.path) ? 'rgba(99, 102, 241, 0.2)' : 'transparent'}`,
-                        '&:hover': {
+                    '&:hover': {
                           background: isDark ? 'rgba(99, 102, 241, 0.08)' : 'rgba(99, 102, 241, 0.04)',
                           color: '#6366f1',
-                        },
+                    },
                         transition: 'all 0.2s ease',
                         '& .MuiButton-startIcon': {
                           marginRight: 0.5,
                         },
-                      }}
-                    >
-                      {item.label}
-                      {item.badge && (
+                  }}
+                >
+                  {item.label}
+                  {item.badge && (
                         <Box
-                          sx={{
+                      sx={{
                             ml: 0.8,
                             px: 0.6,
                             py: 0.1,
@@ -199,11 +199,11 @@ const Navbar: React.FC = () => {
                         >
                           {item.badge}
                         </Box>
-                      )}
-                    </Button>
-                  </motion.div>
-                ))}
-              </Box>
+                  )}
+                </Button>
+              </motion.div>
+            ))}
+          </Box>
             )}
 
             {/* Spacer on mobile */}
@@ -211,32 +211,32 @@ const Navbar: React.FC = () => {
 
             {/* Right side */}
             <Stack direction="row" spacing={0.5} alignItems="center">
-              {/* Theme Toggle */}
-              <motion.div
+          {/* Theme Toggle */}
+          <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.3, delay: 0.3 }}
-              >
-                <IconButton
-                  onClick={toggleMode}
+          >
+            <IconButton
+              onClick={toggleMode}
                   size="small"
-                  sx={{
+              sx={{
                     width: 36,
                     height: 36,
                     borderRadius: '10px',
                     color: theme.palette.text.secondary,
                     background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
                     border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
-                    '&:hover': {
+                '&:hover': {
                       background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
                       color: '#f59e0b',
-                    },
+                },
                     transition: 'all 0.2s ease',
-                  }}
-                >
+              }}
+            >
                   {mode === 'dark' ? <LightModeIcon sx={{ fontSize: 18 }} /> : <DarkModeIcon sx={{ fontSize: 18 }} />}
-                </IconButton>
-              </motion.div>
+            </IconButton>
+          </motion.div>
 
               {/* Privacy Shield Toggle */}
               <motion.div
@@ -297,13 +297,13 @@ const Navbar: React.FC = () => {
               )}
 
               {/* Wallet (shows MON balance when connected) */}
-              <motion.div
+          <motion.div
                 initial={{ opacity: 0, x: 16 }}
-                animate={{ opacity: 1, x: 0 }}
+            animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.35, delay: 0.35 }}
-              >
+          >
                 <MonadWalletConnect variant="navbar" />
-              </motion.div>
+          </motion.div>
 
               {/* Mobile menu button */}
               {isMobile && (
@@ -324,9 +324,9 @@ const Navbar: React.FC = () => {
                 </IconButton>
               )}
             </Stack>
-          </Toolbar>
-        </Container>
-      </AppBar>
+        </Toolbar>
+      </Container>
+    </AppBar>
 
       {/* Mobile Drawer */}
       <Drawer
@@ -403,4 +403,4 @@ const Navbar: React.FC = () => {
   );
 };
 
-export default Navbar;
+export default Navbar; 
