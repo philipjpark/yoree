@@ -58,7 +58,7 @@ const Home: React.FC = () => {
   const [logoIndex, setLogoIndex] = useState(0);
 
   const logos = [
-    { src: yoreeLogo, alt: 'Yoree Signals Market', name: 'Yoree', link: '/pipeline' },
+    { src: yoreeLogo, alt: 'Greed', name: 'Greed', link: '/pipeline' },
     { src: minamLogo, alt: 'Minam Data Feeds', name: 'Minam', link: '/data-feeds' },
     { src: syuzhetLogo, alt: 'Syuzhet Predictions', name: 'Syuzhet', link: '/pipeline' },
   ];
@@ -79,9 +79,9 @@ const Home: React.FC = () => {
 
   const pipelineSteps = [
     { icon: <SocialIcon sx={{ fontSize: 20 }} />, label: 'Socials', desc: 'X, TG, TikTok, Reddit', color: '#3b82f6' },
-    { icon: <AIIcon sx={{ fontSize: 20 }} />, label: 'AI Layer', desc: 'GPT-4o, YSM Engine', color: '#6366f1' },
-    { icon: <HubIcon sx={{ fontSize: 20 }} />, label: 'YSM', desc: 'Signal + Asset Discovery', color: '#10b981' },
-    { icon: <LockIcon sx={{ fontSize: 20 }} />, label: 'Monad', desc: 'Private via Unlink', color: '#8b5cf6' },
+    { icon: <AIIcon sx={{ fontSize: 20 }} />, label: 'AI Layer', desc: 'GPT-4o, Greed Engine', color: '#6366f1' },
+    { icon: <HubIcon sx={{ fontSize: 20 }} />, label: 'Greed', desc: 'Signal + Asset Discovery', color: '#10b981' },
+    { icon: <LockIcon sx={{ fontSize: 20 }} />, label: 'Strategy Buildout', desc: 'Alpha strategy + risk plan', color: '#8b5cf6' },
     { icon: <BrokerageIcon sx={{ fontSize: 20 }} />, label: 'Execute', desc: 'Robinhood, Binance, Kalshi', color: '#f59e0b' },
   ];
 
@@ -237,18 +237,16 @@ const Home: React.FC = () => {
                       sx={{
                         fontWeight: 900,
                         fontSize: { xs: '2.5rem', md: '3.8rem', lg: '4.5rem' },
-                        background: isDark
-                          ? 'linear-gradient(135deg, #fff 0%, #94a3b8 100%)'
-                          : 'linear-gradient(135deg, #1e293b 0%, #475569 100%)',
+                        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #10b981 100%)',
                         backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                         lineHeight: 1.1, mb: 2, letterSpacing: '-0.03em',
                       }}
                     >
-                      YOREE SIGNALS{' '}
+                      GREED SIGNALS{' '}
                       <Box
                         component="span"
                         sx={{
-                          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #10b981 100%)',
+                          background: 'inherit',
                           backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                         }}
                       >
@@ -266,8 +264,8 @@ const Home: React.FC = () => {
                       variant="body1"
                       sx={{ color: theme.palette.text.secondary, mb: 4, maxWidth: 600, mx: { xs: 'auto', md: 0 }, fontWeight: 400, lineHeight: 1.6, fontSize: '1rem' }}
                     >
-                      From social intelligence to trade execution — AI-powered signals flow through the YSM pipeline
-                      to any brokerage, with on-chain privacy via Monad + Unlink.
+                      From social intelligence to trade execution - AI-powered signals flow through the Greed pipeline
+                      to any brokerage, with strategy buildout before execution.
                     </Typography>
 
                     <Stack direction="row" spacing={2} justifyContent={{ xs: 'center', md: 'flex-start' }}>
@@ -327,7 +325,7 @@ const Home: React.FC = () => {
                     </Box>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 800, color: theme.palette.text.primary, fontSize: '1rem' }}>
-                        YSM Signal Pipeline
+                        Greed Signal Pipeline
                       </Typography>
                       <Typography variant="caption" sx={{ color: theme.palette.text.primary, opacity: 0.65 }}>
                         Social → AI → Signals → Assets → Execution

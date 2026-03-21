@@ -25,7 +25,6 @@ import {
   ContentCopy as CopyIcon,
   OpenInNew as OpenInNewIcon,
   AccountBalanceWallet as WalletIcon,
-  Lock as LockIcon,
   Hub as HubIcon,
   Verified as VerifiedIcon,
   Speed as SpeedIcon,
@@ -652,17 +651,6 @@ const MonadWalletConnect: React.FC<MonadWalletConnectProps> = ({ onConnect, onCl
                   height: 22, fontSize: '0.6rem', fontWeight: 700, cursor: 'pointer',
                   background: '#10b98108', color: '#10b981', border: '1px solid #10b98115',
                   '&:hover': { background: '#10b98112' },
-                }}
-              />
-              <Chip
-                label="Unlink + MON"
-                size="small"
-                icon={<LockIcon sx={{ fontSize: '10px !important', color: '#8b5cf6 !important' }} />}
-                onClick={() => window.open('https://faucet.unlink.xyz/?referrer=luma', '_blank')}
-                sx={{
-                  height: 22, fontSize: '0.6rem', fontWeight: 700, cursor: 'pointer',
-                  background: '#8b5cf608', color: '#8b5cf6', border: '1px solid #8b5cf615',
-                  '&:hover': { background: '#8b5cf612' },
                 }}
               />
             </Stack>

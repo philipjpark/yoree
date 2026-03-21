@@ -19,7 +19,7 @@ import DataVault from './pages/DataVault';
 import SignalBacktester from './pages/SignalBacktester';
 import Community from './pages/Community';
 
-// YSM Signal Pipeline + Monad/Unlink
+// Greed Signal Pipeline + Monad/Unlink
 import Pipeline from './pages/Pipeline';
 import UnlinkPrivateWallet from './components/UnlinkPrivateWallet';
 import { TransactionLayerProvider } from './contexts/TransactionLayer';

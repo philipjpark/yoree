@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 /**
- * @title YSM Signal Registry
+ * @title Greed Signal Registry
  * @notice On-chain registry for Yoree Signal Market signals on Monad Testnet.
  *         Every signal created in the app gets a verifiable on-chain record.
  *

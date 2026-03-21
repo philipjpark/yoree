@@ -1,4 +1,4 @@
-# Yoree Signals Market - Integration Refactor Summary
+# Greed - Integration Refactor Summary
 
 ## Overview
 

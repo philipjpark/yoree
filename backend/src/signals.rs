@@ -1,4 +1,4 @@
-// Signal service for Yoree Signals Market
+// Signal service for Greed
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -290,7 +290,7 @@ impl SignalService {
             };
 
             signal.instances.push(instance);
-            signal.score = new_score;
+            signal.score = new_score.clone();
             signal.quality = quality;
             signal.updated_at = Utc::now();
 

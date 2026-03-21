@@ -1,8 +1,8 @@
-# Yoree Signals Market - Implementation Summary
+# Greed - Implementation Summary
 
 ## Overview
 
-Yoree Signals Market is an intelligence exchange where signals (structured interpretations of data, strategies, and narratives) are created, evaluated, and traded as first-class assets. This implementation integrates Minam (data layer) and Syuzhet (narrative/market layer) into the Yoree platform.
+Greed is an intelligence exchange where signals (structured interpretations of data, strategies, and narratives) are created, evaluated, and traded as first-class assets. This implementation integrates Minam (data layer) and Syuzhet (narrative/market layer) into the Greed platform.
 
 ## Architecture
 

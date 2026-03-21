@@ -2,7 +2,7 @@ use axum::{
     routing::{get, post},
     Router,
     Json,
-    extract::{State, Path},
+    extract::{State, Path, Query},
     http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
@@ -104,6 +104,65 @@ struct UpdateScoreRequest {
     accuracy: f64,
     performance: f64,
     consensus: f64,
+}
+
+#[derive(Deserialize)]
+struct XCorpusQuery {
+    handle: String,
+}
+
+#[derive(Serialize)]
+struct XCorpusResponse {
+    corpus: String,
+    sourceCount: usize,
+}
+
+#[derive(Deserialize)]
+struct XUser {
+    id: String,
+    username: String,
+}
+
+#[derive(Deserialize)]
+struct XUsersResponse {
+    data: Option<Vec<XUser>>,
+}
+
+#[derive(Deserialize)]
+struct XUserLookupResponse {
+    data: Option<XUser>,
+}
+
+#[derive(Deserialize)]
+struct XTweet {
+    text: String,
+}
+
+#[derive(Deserialize)]
+struct XTweetsResponse {
+    data: Option<Vec<XTweet>>,
+}
+
+#[derive(Deserialize)]
+struct RedditListing {
+    data: RedditListingData,
+}
+
+#[derive(Deserialize)]
+struct RedditListingData {
+    children: Vec<RedditChild>,
+}
+
+#[derive(Deserialize)]
+struct RedditChild {
+    data: RedditPostData,
+}
+
+#[derive(Deserialize)]
+struct RedditPostData {
+    subreddit: String,
+    title: String,
+    selftext: String,
 }
 
 async fn health_check() -> StatusCode {
@@ -356,12 +415,8 @@ async fn get_minam_feed(
     Path(id): Path<String>,
 ) -> Result<Json<MinamFeed>, StatusCode> {
     match state.minam_service.get_feed(&id).await {
-        Ok(Some(feed)) => Ok(Json(feed)),
-        Ok(None) => Err(StatusCode::NOT_FOUND),
-        Err(e) => {
-            error!("Failed to get Minam feed: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
+        Some(feed) => Ok(Json(feed)),
+        None => Err(StatusCode::NOT_FOUND),
     }
 }
 
@@ -390,6 +445,242 @@ async fn generate_thesis(
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
+}
+
+async fn get_x_corpus(
+    Query(query): Query<XCorpusQuery>,
+) -> Json<XCorpusResponse> {
+    let handle = query.handle.trim().trim_start_matches('@').to_string();
+    if handle.is_empty() {
+        return Json(XCorpusResponse {
+            corpus: "No handle provided.".to_string(),
+            sourceCount: 0,
+        });
+    }
+
+    let bearer = std::env::var("X_BEARER_TOKEN")
+        .or_else(|_| std::env::var("X_API_BEARER_TOKEN"))
+        .ok();
+
+    let Some(token) = bearer else {
+        return Json(XCorpusResponse {
+            corpus: format!(
+                "X token is not configured. Set X_BEARER_TOKEN on backend. Fallback corpus for @{}.",
+                handle
+            ),
+            sourceCount: 0,
+        });
+    };
+
+    match fetch_x_graph_corpus(&handle, &token).await {
+        Ok((corpus, source_count)) => Json(XCorpusResponse {
+            corpus,
+            sourceCount: source_count,
+        }),
+        Err(e) => {
+            error!("Failed to fetch X corpus: {}", e);
+            Json(XCorpusResponse {
+                corpus: format!(
+                    "Unable to fetch live X graph corpus for @{}. Check X token/scopes/tier. {}",
+                    handle, e
+                ),
+                sourceCount: 0,
+            })
+        }
+    }
+}
+
+async fn get_reddit_corpus() -> Json<XCorpusResponse> {
+    match fetch_reddit_public_corpus().await {
+        Ok((corpus, source_count)) => Json(XCorpusResponse {
+            corpus,
+            sourceCount: source_count,
+        }),
+        Err(e) => {
+            error!("Failed to fetch Reddit corpus: {}", e);
+            Json(XCorpusResponse {
+                corpus: format!(
+                    "Unable to fetch Reddit corpus from public subreddits. {}",
+                    e
+                ),
+                sourceCount: 0,
+            })
+        }
+    }
+}
+
+async fn fetch_reddit_public_corpus() -> Result<(String, usize), String> {
+    let client = reqwest::Client::new();
+    let subreddits = [
+        "CryptoCurrency",
+        "Bitcoin",
+        "stocks",
+        "investing",
+        "wallstreetbets",
+        "PredictionMarkets",
+        "sportsbook",
+    ];
+
+    let mut corpus_lines: Vec<String> = Vec::new();
+    let mut source_count = 0usize;
+
+    for sub in subreddits {
+        let url = format!("https://www.reddit.com/r/{}/hot.json?limit=8", sub);
+        let resp = client
+            .get(&url)
+            .header("User-Agent", "greed-signal-ingestion/1.0")
+            .send()
+            .await
+            .map_err(|e| format!("reddit request failed for r/{}: {}", sub, e))?;
+
+        if !resp.status().is_success() {
+            continue;
+        }
+
+        let listing: RedditListing = match resp.json().await {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+
+        let mut added_for_sub = 0usize;
+        for child in listing.data.children.into_iter().take(6) {
+            let title = child.data.title.trim();
+            if title.is_empty() {
+                continue;
+            }
+            let body = child.data.selftext.replace('\n', " ").trim().to_string();
+            if body.is_empty() {
+                corpus_lines.push(format!("r/{}: {}", child.data.subreddit, title));
+            } else {
+                corpus_lines.push(format!("r/{}: {} | {}", child.data.subreddit, title, body));
+            }
+            added_for_sub += 1;
+        }
+        if added_for_sub > 0 {
+            source_count += 1;
+        }
+    }
+
+    if corpus_lines.is_empty() {
+        return Err("no public subreddit posts available".to_string());
+    }
+
+    Ok((corpus_lines.join("\n"), source_count))
+}
+
+async fn fetch_x_graph_corpus(handle: &str, bearer_token: &str) -> Result<(String, usize), String> {
+    let client = reqwest::Client::new();
+    let auth = format!("Bearer {}", bearer_token);
+
+    let lookup_url = format!(
+        "https://api.x.com/2/users/by/username/{}?user.fields=username",
+        handle
+    );
+    let lookup = client
+        .get(&lookup_url)
+        .header("Authorization", &auth)
+        .send()
+        .await
+        .map_err(|e| format!("user lookup request failed: {}", e))?;
+    if !lookup.status().is_success() {
+        return Err(format!("user lookup failed with status {}", lookup.status()));
+    }
+    let lookup_json: XUserLookupResponse = lookup
+        .json()
+        .await
+        .map_err(|e| format!("user lookup parse failed: {}", e))?;
+    let Some(user) = lookup_json.data else {
+        return Err("user not found".to_string());
+    };
+
+    let followers_url = format!(
+        "https://api.x.com/2/users/{}/followers?max_results=40&user.fields=username",
+        user.id
+    );
+    let following_url = format!(
+        "https://api.x.com/2/users/{}/following?max_results=40&user.fields=username",
+        user.id
+    );
+
+    let followers_resp = client
+        .get(&followers_url)
+        .header("Authorization", &auth)
+        .send()
+        .await
+        .map_err(|e| format!("followers request failed: {}", e))?;
+    if !followers_resp.status().is_success() {
+        return Err(format!("followers request failed with status {}", followers_resp.status()));
+    }
+    let followers_json: XUsersResponse = followers_resp
+        .json()
+        .await
+        .map_err(|e| format!("followers parse failed: {}", e))?;
+
+    let following_resp = client
+        .get(&following_url)
+        .header("Authorization", &auth)
+        .send()
+        .await
+        .map_err(|e| format!("following request failed: {}", e))?;
+    if !following_resp.status().is_success() {
+        return Err(format!("following request failed with status {}", following_resp.status()));
+    }
+    let following_json: XUsersResponse = following_resp
+        .json()
+        .await
+        .map_err(|e| format!("following parse failed: {}", e))?;
+
+    let mut unique_users: Vec<XUser> = Vec::new();
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for u in followers_json.data.unwrap_or_default().into_iter().chain(following_json.data.unwrap_or_default()) {
+        if seen.insert(u.id.clone()) {
+            unique_users.push(u);
+        }
+    }
+
+    let mut corpus_lines: Vec<String> = Vec::new();
+    let mut source_count = 0usize;
+
+    for account in unique_users.into_iter().take(20) {
+        let tweets_url = format!(
+            "https://api.x.com/2/users/{}/tweets?max_results=5&exclude=retweets,replies&tweet.fields=created_at",
+            account.id
+        );
+        let tweets_resp = client
+            .get(&tweets_url)
+            .header("Authorization", &auth)
+            .send()
+            .await
+            .map_err(|e| format!("tweets request failed for {}: {}", account.username, e))?;
+        if !tweets_resp.status().is_success() {
+            continue;
+        }
+        let tweets_json: XTweetsResponse = match tweets_resp.json().await {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let tweets = tweets_json.data.unwrap_or_default();
+        if tweets.is_empty() {
+            continue;
+        }
+
+        source_count += 1;
+        for t in tweets.into_iter().take(3) {
+            let clean = t.text.replace('\n', " ").trim().to_string();
+            if !clean.is_empty() {
+                corpus_lines.push(format!("@{}: {}", account.username, clean));
+            }
+        }
+        if corpus_lines.len() >= 80 {
+            break;
+        }
+    }
+
+    if corpus_lines.is_empty() {
+        return Err("no accessible tweets found from followers/following".to_string());
+    }
+
+    Ok((corpus_lines.join("\n"), source_count))
 }
 
 #[tokio::main]
@@ -441,6 +732,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/minam/feeds", get(list_minam_feeds))
         .route("/api/minam/feeds/:id", get(get_minam_feed))
         .route("/api/minam/feeds/:id/data", get(get_minam_feed_data))
+        // Social ingestion API
+        .route("/api/social/x/corpus", get(get_x_corpus))
+        .route("/api/social/reddit/corpus", get(get_reddit_corpus))
         // Syuzhet API
         .route("/api/thesis/generate", post(generate_thesis))
         .with_state(state);

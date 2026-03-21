@@ -65,12 +65,14 @@ import pipelineService, {
   BrokerageId,
   PipelineSignal,
   DiscoveredAsset,
+  AssetStrategy,
   PipelineStep,
   PLATFORM_DIRECTORY,
   DATA_APIS,
 } from '../services/pipelineService';
 import monadService from '../services/monadService';
 import monadContractService from '../services/monadContractService';
+import { signalService } from '../services/signalService';
 
 const categoryIcons: Record<string, React.ReactNode> = {
   'Predictions': <CasinoIcon sx={{ fontSize: 16 }} />,
@@ -126,6 +128,15 @@ const Pipeline: React.FC = () => {
   const [otherSourceName, setOtherSourceName] = useState('');
   const [otherSourceUrl, setOtherSourceUrl] = useState('');
   const [otherSourceContent, setOtherSourceContent] = useState('');
+  const [runSources, setRunSources] = useState<SocialPlatform[]>(['x', 'reddit']);
+  const [corpusPreview, setCorpusPreview] = useState('');
+  const [corpusBuilt, setCorpusBuilt] = useState(false);
+  const [isBuildingCorpus, setIsBuildingCorpus] = useState(false);
+  const [selectedAssetKeys, setSelectedAssetKeys] = useState<string[]>([]);
+  const [lastAnalysisInput, setLastAnalysisInput] = useState('');
+  const xHandle = process.env.REACT_APP_X_HANDLE || 'bibim_official';
+  const xOAuthUrl = process.env.REACT_APP_X_OAUTH_URL || `https://x.com/${xHandle}`;
+  const redditConnectUrl = process.env.REACT_APP_REDDIT_CONNECT_URL || 'https://www.reddit.com';
 
   useEffect(() => {
     const ws = monadService.getWalletState();
@@ -145,7 +156,7 @@ const Pipeline: React.FC = () => {
     return () => pipelineService.clearStepUpdateCallback();
   }, []);
 
-  const handleConnectSocial = (platform: SocialPlatform) => {
+  const handleConnectSocial = async (platform: SocialPlatform) => {
     if (platform === 'other') {
       setShowOtherDialog(true);
       return;
@@ -156,11 +167,20 @@ const Pipeline: React.FC = () => {
       pipelineService.disconnectSocial(platform);
     } else {
       // Connect if not connected
-      pipelineService.connectSocial(platform, `demo_${platform}`);
+      if (platform === 'x') {
+        // OAuth URL should be configured in env; fallback opens the user's X profile.
+        window.open(xOAuthUrl, '_blank');
+        pipelineService.connectSocial(platform, xHandle);
+      } else if (platform === 'reddit') {
+        window.open(redditConnectUrl, '_blank');
+        pipelineService.connectSocial(platform, 'public_subreddits');
+      } else {
+        pipelineService.connectSocial(platform, `demo_${platform}`);
+      }
     }
     setSocialConnections(pipelineService.getSocialConnections());
     setStats(pipelineService.getStats());
-    // Also update selectedSource to sync with YSM Engine chips
+    // Also update selectedSource to sync with Greed Engine chips
     setSelectedSource(platform);
   };
 
@@ -253,41 +273,103 @@ const Pipeline: React.FC = () => {
   };
 
   const handleGenerateFromSocials = async () => {
-    const connectedSocials = socialConnections.filter(s => s.isConnected);
-    if (connectedSocials.length === 0) {
-      return;
+    await runTradingPrompt(false);
+  };
+
+  const assetKey = (asset: DiscoveredAsset) => `${asset.symbol}-${asset.platform}`;
+
+  const toggleRunSource = (platform: SocialPlatform) => {
+    setRunSources((prev) => (
+      prev.includes(platform) ? prev.filter((p) => p !== platform) : [...prev, platform]
+    ));
+  };
+
+  const toggleAssetSelection = (asset: DiscoveredAsset) => {
+    const key = assetKey(asset);
+    setSelectedAssetKeys((prev) => (
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    ));
+  };
+
+  const buildCorpusPreview = async (): Promise<{ chosenSource: SocialPlatform; analysisInput: string } | null> => {
+    const connectedSocials = socialConnections.filter((s) => s.isConnected && runSources.includes(s.platform));
+    if (!connectedSocials.length) return null;
+
+    setIsBuildingCorpus(true);
+    try {
+      const parts: string[] = [];
+      let chosenSource: SocialPlatform = connectedSocials[0].platform;
+
+      if (connectedSocials.some((s) => s.platform === 'x')) {
+        const xCorpus = await signalService.getXGraphCorpus(xHandle);
+        if (xCorpus?.corpus) {
+          chosenSource = 'x';
+          parts.push(`[X @${xHandle} | ${xCorpus.sourceCount} sources]\n${xCorpus.corpus}`);
+        }
+      }
+
+      if (connectedSocials.some((s) => s.platform === 'reddit')) {
+        const redditCorpus = await signalService.getRedditPublicCorpus();
+        if (redditCorpus?.corpus) {
+          if (chosenSource !== 'x') chosenSource = 'reddit';
+          parts.push(`[Reddit public | ${redditCorpus.sourceCount} subreddits]\n${redditCorpus.corpus}`);
+        }
+      }
+
+      if (!parts.length) {
+        const socialNames = connectedSocials.map((s) => s.displayName).join(', ');
+        parts.push(`No live corpus available. Use these selected socials as context: ${socialNames}.`);
+      }
+
+      const compiledCorpus = parts.join('\n\n---\n\n');
+      setCorpusPreview(compiledCorpus.slice(0, 1800));
+      setCorpusBuilt(true);
+
+      const systemPrompt =
+        `You are a trading-oriented signal engine. Convert the social corpus into actionable market intelligence. ` +
+        `Output a high-conviction hypothesis, ranked assets across classes, and concrete trading rationale with risk awareness.`;
+      const analysisInput = `${systemPrompt}\n\nSOCIAL CORPUS:\n${compiledCorpus}`;
+      setLastAnalysisInput(analysisInput);
+
+      return { chosenSource, analysisInput };
+    } finally {
+      setIsBuildingCorpus(false);
+    }
+  };
+
+  const runTradingPrompt = async (regenerateAssets: boolean) => {
+    let chosenSource: SocialPlatform = 'x';
+    let analysisInput = lastAnalysisInput;
+
+    if (!analysisInput || !regenerateAssets) {
+      const built = await buildCorpusPreview();
+      if (!built) return;
+      chosenSource = built.chosenSource;
+      analysisInput = built.analysisInput;
     }
 
     setIsProcessing(true);
     setIsStreaming(true);
     setActiveSignal(null);
     setStreamingText('');
+    setSelectedAssetKeys([]);
 
     try {
-      // Build a personalized prompt from the user's connected socials
-      const socialNames = connectedSocials.map(s => s.displayName).join(', ');
-      const personalizedPrompt = `Generate a unique trading signal based on the user's personalized social media feed from: ${socialNames}. Analyze patterns, sentiment, and emerging trends across these sources to identify proprietary opportunities that are endemic to this user's unique combination of followed accounts, communities, and subscriptions.`;
-
-      // Use the first connected social as the source, but the prompt is personalized
-      const result = await pipelineService.processSignal(
-        connectedSocials[0].platform,
-        personalizedPrompt
-      );
-      
+      const result = await pipelineService.processSignal(chosenSource, analysisInput);
       setRecentSignals(pipelineService.getRecentSignals());
       setStats(pipelineService.getStats());
       setActiveSignal(result);
 
-      // Stream the hypothesis in batches for faster display
       const hypothesis = result.hypothesis;
-      const batchSize = 5; // Stream 5 characters at a time
+      const batchSize = 5;
       for (let i = 0; i < hypothesis.length; i += batchSize) {
         await new Promise(r => setTimeout(r, 0.2));
         setStreamingText(prev => prev + hypothesis.slice(i, i + batchSize));
       }
       setIsStreaming(false);
 
-      // Auto-register on-chain
+      setSelectedAssetKeys(result.discoveredAssets.slice(0, 2).map(assetKey));
+
       setOnChainResult(null);
       try {
         const chainResult = await registerOnChain({
@@ -295,7 +377,7 @@ const Pipeline: React.FC = () => {
           quality: result.confidence,
           sentiment: result.sentiment || 'neutral',
           assetCount: result.discoveredAssets.length,
-          source: 'personalized-socials',
+          source: regenerateAssets ? 'regenerated-assets' : 'personalized-socials',
           timestamp: result.timestamp,
         });
         setOnChainResult({
@@ -307,7 +389,7 @@ const Pipeline: React.FC = () => {
         // Non-critical
       }
     } catch (err) {
-      console.error('Failed to generate from socials:', err);
+      console.error('Failed to run trading prompt:', err);
       setIsStreaming(false);
     } finally {
       setIsProcessing(false);
@@ -342,6 +424,18 @@ const Pipeline: React.FC = () => {
     }
 
     setShowCreateDialog(true);
+  };
+
+  const handleGenerateStrategy = () => {
+    if (!activeSignal) return;
+    const selectedAssets = activeSignal.discoveredAssets.filter((asset) => selectedAssetKeys.includes(assetKey(asset)));
+    const strategyAssets = selectedAssets.length ? selectedAssets : activeSignal.discoveredAssets;
+    const generated = pipelineService.generateStrategiesFromAssets(activeSignal.hypothesis, strategyAssets);
+    setActiveSignal({
+      ...activeSignal,
+      strategies: generated,
+      status: 'strategy_generated',
+    });
   };
 
   // Group platforms by category for directory
@@ -447,6 +541,8 @@ const Pipeline: React.FC = () => {
   // ─── Asset Result Card (matches Create Signal style) ───
   const AssetResultCard = ({ asset, index }: { asset: DiscoveredAsset; index: number }) => {
     const color = categoryColors[asset.assetClass] || '#6366f1';
+    const strategyForAsset = activeSignal?.strategies?.find((s) => s.assetSymbol === asset.symbol);
+    const isSelected = selectedAssetKeys.includes(assetKey(asset));
     return (
       <motion.div
         initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -510,9 +606,23 @@ const Pipeline: React.FC = () => {
                   color: asset.confidence > 80 ? '#10b981' : '#f59e0b',
                 }}
               />
+              <Button
+                size="small"
+                onClick={() => toggleAssetSelection(asset)}
+                sx={{
+                  minWidth: 'auto', px: 1.2, py: 0.4, borderRadius: '8px',
+                  fontSize: '0.62rem', fontWeight: 700, textTransform: 'none',
+                  color: isSelected ? '#10b981' : theme.palette.text.secondary,
+                  background: isSelected ? '#10b98115' : (isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'),
+                  border: `1px solid ${isSelected ? '#10b98140' : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)')}`,
+                }}
+              >
+                {isSelected ? 'Selected' : 'Select'}
+              </Button>
               <Tooltip title={`Trade on ${asset.platformName || asset.platform} (Pre-flight: privacy → register → route)`} arrow>
                 <Button
                   size="small"
+                  disabled={!strategyForAsset || !isSelected}
                   onClick={() => {
                     if (activeSignal) {
                       executeWithPreFlight({
@@ -536,10 +646,14 @@ const Pipeline: React.FC = () => {
                     background: `${color}08`,
                     border: `1px solid ${color}20`,
                     '&:hover': { background: `${color}15` },
+                    '&.Mui-disabled': {
+                      color: theme.palette.text.disabled,
+                      borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                    },
                   }}
                   endIcon={<OpenInNewIcon sx={{ fontSize: '12px !important' }} />}
                 >
-                  {asset.platformName || asset.platform}
+                  {!isSelected ? 'Select Asset' : strategyForAsset ? (asset.platformName || asset.platform) : 'Generate Strategy'}
                 </Button>
               </Tooltip>
             </Stack>
@@ -605,12 +719,9 @@ const Pipeline: React.FC = () => {
                   letterSpacing: '-0.02em',
                 }}
               >
-                YSM Signal Pipeline
+                Greed Signal Pipeline
               </Typography>
             </Stack>
-            <Typography variant="body1" sx={{ color: theme.palette.text.primary, opacity: 0.7, maxWidth: 700, mx: 'auto', mb: 2, fontWeight: 400 }}>
-              Social Intelligence → AI Processing → Signal Generation → Asset Discovery → Trade Execution
-            </Typography>
             <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
               {[
                 { icon: <FlashIcon sx={{ fontSize: 14 }} />, label: `${stats.totalSignalsProcessed} Signals`, color: '#6366f1' },
@@ -766,7 +877,7 @@ const Pipeline: React.FC = () => {
             </motion.div>
           </Grid>
 
-          {/* ═══ CENTER: YSM ENGINE ═══ */}
+          {/* ═══ CENTER: GREED ENGINE ═══ */}
           <Grid item xs={12} md={4}>
             <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
               {glassCard(
@@ -780,7 +891,7 @@ const Pipeline: React.FC = () => {
                     </Box>
                     <Box>
                       <Typography variant="subtitle1" sx={{ fontWeight: 800, color: theme.palette.text.primary, lineHeight: 1.2 }}>
-                        YSM ENGINE
+                        GREED ENGINE
                       </Typography>
                       <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontWeight: 500 }}>
                         Signal + Asset Discovery
@@ -800,22 +911,7 @@ const Pipeline: React.FC = () => {
                           key={platform}
                           label={conn?.displayName || platform}
                           size="small"
-                          onClick={() => {
-                            if (platform === 'other') {
-                              setShowOtherDialog(true);
-                            } else {
-                              // Toggle connection and update selectedSource
-                              const connection = socialConnections.find(s => s.platform === platform);
-                              if (connection?.isConnected) {
-                                pipelineService.disconnectSocial(platform);
-                              } else {
-                                pipelineService.connectSocial(platform, `demo_${platform}`);
-                              }
-                              setSocialConnections(pipelineService.getSocialConnections());
-                              setStats(pipelineService.getStats());
-                              setSelectedSource(platform);
-                            }
-                          }}
+                          onClick={() => { void handleConnectSocial(platform); }}
                           sx={{
                             fontWeight: 700, fontSize: '0.65rem', height: 24,
                             background: selectedSource === platform 
@@ -841,6 +937,26 @@ const Pipeline: React.FC = () => {
                     })}
                   </Stack>
 
+                  <Typography variant="overline" sx={{ fontWeight: 800, color: '#6366f1', mb: 1, display: 'block', letterSpacing: '0.1em', fontSize: '0.62rem' }}>
+                    SELECT SOCIALS FOR THIS RUN
+                  </Typography>
+                  <Stack direction="row" spacing={0.5} sx={{ mb: 2, flexWrap: 'wrap', gap: 0.5 }}>
+                    {socialConnections.filter((s) => s.isConnected).map((conn) => (
+                      <Chip
+                        key={`run-${conn.platform}`}
+                        label={conn.displayName}
+                        size="small"
+                        onClick={() => toggleRunSource(conn.platform)}
+                        sx={{
+                          fontWeight: 700, fontSize: '0.62rem', height: 22,
+                          background: runSources.includes(conn.platform) ? '#6366f120' : 'transparent',
+                          border: `1px solid ${runSources.includes(conn.platform) ? '#6366f1' : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)')}`,
+                          color: runSources.includes(conn.platform) ? '#6366f1' : theme.palette.text.secondary,
+                        }}
+                      />
+                    ))}
+                  </Stack>
+
                   {/* Signal Input */}
                   <TextField
                     multiline
@@ -860,6 +976,38 @@ const Pipeline: React.FC = () => {
                       },
                     }}
                   />
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    onClick={() => { void buildCorpusPreview(); }}
+                    disabled={isProcessing || isBuildingCorpus || socialConnections.filter((s) => s.isConnected && runSources.includes(s.platform)).length === 0}
+                    startIcon={isBuildingCorpus ? <CircularProgress size={16} /> : <DataIcon />}
+                    sx={{
+                      mb: 1.2,
+                      fontWeight: 700, fontSize: '0.78rem', textTransform: 'none',
+                      borderRadius: '10px',
+                      borderColor: '#6366f1', color: '#6366f1',
+                    }}
+                  >
+                    {isBuildingCorpus ? 'Building Corpus...' : 'Generate Corpus Preview'}
+                  </Button>
+                  {corpusBuilt && (
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 1.3, borderRadius: '10px', mb: 1.8,
+                        background: isDark ? 'rgba(99,102,241,0.05)' : 'rgba(99,102,241,0.03)',
+                        border: '1px solid rgba(99,102,241,0.15)',
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ color: '#6366f1', fontWeight: 800, fontSize: '0.62rem', display: 'block', mb: 0.5 }}>
+                        CORPUS PREVIEW
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.64rem', lineHeight: 1.35 }}>
+                        {corpusPreview.slice(0, 380)}{corpusPreview.length > 380 ? '...' : ''}
+                      </Typography>
+                    </Paper>
+                  )}
                   <Stack spacing={1.5}>
                     <Button
                       variant="contained"
@@ -881,7 +1029,7 @@ const Pipeline: React.FC = () => {
                     <Button
                       variant="outlined"
                       fullWidth
-                      onClick={handleGenerateFromSocials}
+                      onClick={() => { void runTradingPrompt(false); }}
                       disabled={isProcessing || socialConnections.filter(s => s.isConnected).length === 0}
                       startIcon={isProcessing ? <CircularProgress size={18} /> : <SparkleIcon />}
                       sx={{
@@ -901,7 +1049,19 @@ const Pipeline: React.FC = () => {
                         },
                       }}
                     >
-                      {isProcessing ? 'Generating...' : 'Signals from My Socials'}
+                      {isProcessing ? 'Generating...' : 'Run Trading-Oriented Prompt'}
+                    </Button>
+                    <Button
+                      variant="text"
+                      fullWidth
+                      onClick={() => { void runTradingPrompt(true); }}
+                      disabled={isProcessing || !activeSignal || !lastAnalysisInput}
+                      sx={{
+                        fontWeight: 700, fontSize: '0.78rem', textTransform: 'none',
+                        color: '#f59e0b',
+                      }}
+                    >
+                      Regenerate Assets
                     </Button>
                   </Stack>
 
@@ -1038,7 +1198,7 @@ const Pipeline: React.FC = () => {
                   {/* Pipeline flow */}
                   {!activeSignal && !isProcessing && (
                     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, gap: 0.5 }}>
-                      {['Input', 'YSM', 'Output'].map((label, i) => (
+                      {['Input', 'Greed', 'Output'].map((label, i) => (
                         <React.Fragment key={label}>
                           {i > 0 && <ArrowForwardIcon sx={{ color: theme.palette.text.primary, fontSize: 16, alignSelf: 'center', opacity: 0.7 }} />}
                           <Chip
@@ -1093,11 +1253,95 @@ const Pipeline: React.FC = () => {
                         <Typography variant="overline" sx={{ fontWeight: 800, color: '#f59e0b', mb: 1.5, display: 'block', letterSpacing: '0.1em', fontSize: '0.68rem' }}>
                           DISCOVERED ASSETS ({activeSignal.discoveredAssets.length})
                         </Typography>
+                        <Stack direction="row" spacing={0.7} sx={{ mb: 1.2 }}>
+                          <Chip
+                            size="small"
+                            label={`${selectedAssetKeys.length} selected`}
+                            sx={{
+                              height: 20, fontSize: '0.6rem', fontWeight: 800,
+                              background: '#10b98115', color: '#10b981',
+                            }}
+                          />
+                          <Chip
+                            size="small"
+                            label="Select targets → Build strategy → Route to exchange"
+                            sx={{
+                              height: 20, fontSize: '0.58rem', fontWeight: 700,
+                              background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
+                              color: theme.palette.text.secondary,
+                            }}
+                          />
+                        </Stack>
                         <Stack spacing={1} sx={{ mb: 2 }}>
                           {activeSignal.discoveredAssets.map((asset, idx) => (
                             <AssetResultCard key={`${asset.symbol}-${asset.platform}-${idx}`} asset={asset} index={idx} />
                           ))}
                         </Stack>
+
+                        {/* ALPHA STRATEGY (between discovery and execution) */}
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            p: 1.5,
+                            mb: 2,
+                            borderRadius: '12px',
+                            background: isDark ? 'rgba(99,102,241,0.05)' : 'rgba(99,102,241,0.03)',
+                            border: '1px solid rgba(99,102,241,0.18)',
+                          }}
+                        >
+                          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                            <Typography variant="overline" sx={{ fontWeight: 800, color: '#6366f1', letterSpacing: '0.08em', fontSize: '0.62rem' }}>
+                              ALPHA STRATEGY
+                            </Typography>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={handleGenerateStrategy}
+                              sx={{
+                                textTransform: 'none',
+                                fontSize: '0.66rem',
+                                fontWeight: 700,
+                                borderRadius: '8px',
+                                borderColor: '#6366f1',
+                                color: '#6366f1',
+                              }}
+                            >
+                              {activeSignal.strategies?.length ? 'Regenerate Alpha' : 'Generate Alpha'}
+                            </Button>
+                          </Stack>
+                          {activeSignal.strategies?.length ? (
+                            <Stack spacing={0.8}>
+                              {activeSignal.strategies.slice(0, 3).map((strategy: AssetStrategy, idx: number) => (
+                                <Paper
+                                  key={`${strategy.assetSymbol}-${idx}`}
+                                  elevation={0}
+                                  sx={{
+                                    p: 1,
+                                    borderRadius: '10px',
+                                    background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
+                                    border: `1px solid ${isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'}`,
+                                  }}
+                                >
+                                  <Stack direction="row" alignItems="center" justifyContent="space-between">
+                                    <Typography variant="caption" sx={{ fontWeight: 800, color: theme.palette.text.primary, fontSize: '0.68rem' }}>
+                                      {strategy.assetSymbol} · {strategy.action.toUpperCase()}
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: '#6366f1', fontSize: '0.64rem', fontWeight: 700 }}>
+                                      {strategy.timeHorizon}
+                                    </Typography>
+                                  </Stack>
+                                  <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.62rem' }}>
+                                    {strategy.entry}
+                                  </Typography>
+                                </Paper>
+                              ))}
+                            </Stack>
+                          ) : (
+                            <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.68rem' }}>
+                              Select target assets, then generate alpha strategy buildout for how to trade them.
+                            </Typography>
+                          )}
+                        </Paper>
 
                         {/* CREATE SIGNAL BUTTON */}
                         <Button
@@ -1631,7 +1875,7 @@ const Pipeline: React.FC = () => {
               {[
                 { label: 'Socials', color: '#3b82f6', icon: <SocialIcon sx={{ fontSize: 14 }} /> },
                 { label: 'AI', color: '#6366f1', icon: <AIIcon sx={{ fontSize: 14 }} /> },
-                { label: 'YSM', color: '#10b981', icon: <HubIcon sx={{ fontSize: 14 }} /> },
+                { label: 'Greed', color: '#10b981', icon: <HubIcon sx={{ fontSize: 14 }} /> },
                 { label: 'Signals', color: '#34d399', icon: <TrendingUpIcon sx={{ fontSize: 14 }} /> },
                 { label: 'Monad', color: '#8b5cf6', icon: <LockIcon sx={{ fontSize: 14 }} /> },
                 { label: 'Execution', color: '#f59e0b', icon: <BrokerageIcon sx={{ fontSize: 14 }} /> },
@@ -1897,7 +2141,7 @@ const Pipeline: React.FC = () => {
                 '& .MuiAlert-icon': { fontSize: 18 },
               }}
             >
-              Custom sources let you pipe any data into the YSM Signal Pipeline. Once connected, the AI engine will analyze it alongside your other sources.
+              Custom sources let you pipe any data into the Greed Signal Pipeline. Once connected, the AI engine will analyze it alongside your other sources.
             </Alert>
           </Stack>
         </DialogContent>

@@ -18,7 +18,7 @@ const hre = require("hardhat");
 
 async function main() {
   console.log("═══════════════════════════════════════════════════════");
-  console.log("  YSM Signal Registry — Deploying to Monad Testnet");
+  console.log("  Greed Signal Registry - Deploying to Monad Testnet");
   console.log("═══════════════════════════════════════════════════════\n");
 
   const [deployer] = await hre.ethers.getSigners();

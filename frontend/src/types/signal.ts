@@ -1,4 +1,4 @@
-// Signal Types for Yoree Signals Market
+// Signal Types for Greed
 
 export interface Signal {
   id: string;

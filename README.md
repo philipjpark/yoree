@@ -1,4 +1,4 @@
-# <img src="./frontend/src/assets/images/yoree_logo.png" alt="Yoree Logo" width="32" height="32" style="vertical-align: middle;"> YOREE SIGNALS MARKET - The Intelligence Exchange
+# <img src="./frontend/src/assets/images/yoree_logo.png" alt="Greed Logo" width="32" height="32" style="vertical-align: middle;"> GREED - The Intelligence Exchange
 
 <div align="center">
 
@@ -23,7 +23,7 @@
 - **🥈 2025 Blockworks Permissionless IV Hackathon** – 2nd Place Winner
 - **🏆 NYC AI Tinkerers Agentic AI App Hackathon with Google Cloud Run GPUs** - Featured Finalist
 
-> <span style="color:gray;"><i>Originally built as <b>Bibim</b> – now evolved into <b>Yoree Signals Market</b> with major updates.</i></span>
+> <span style="color:gray;"><i>Originally built as <b>Bibim</b> – now evolved into <b>Greed</b> with major updates.</i></span>
 
 ## 📱 Connect With Us
 
@@ -31,9 +31,9 @@
 
 ---
 
-## 🌟 What is Yoree Signals Market?
+## 🌟 What is Greed?
 
-Yoree Signals Market is the **first signal-driven intelligence exchange** where signals automatically discover and connect to related assets across all asset classes. Unlike traditional platforms where you search for assets, Yoree starts with your signal hypothesis and automatically surfaces related crypto, stocks, futures, forex, predictions, ETFs, and more—all in one unified view.
+Greed is the **first signal-driven intelligence exchange** where signals automatically discover and connect to related assets across all asset classes. Unlike traditional platforms where you search for assets, Greed starts with your signal hypothesis and automatically surfaces related crypto, stocks, futures, forex, predictions, ETFs, and more-all in one unified view.
 
 ### 🚀 Revolutionary Signal-First Workflow
 
@@ -108,7 +108,7 @@ All of this is presented in one unified interface, allowing you to quickly asses
 
 ## 🔗 Integrated Components
 
-Yoree Signals Market seamlessly integrates two powerful open-source projects:
+Greed seamlessly integrates two powerful open-source projects:
 
 ### 📊 [Minam 미남](https://github.com/philipjpark/minam) - The Data Layer
 
@@ -298,7 +298,7 @@ Market Price Evolution
 
 ```
 yoree/
-├── frontend/                    # React frontend (Yoree Signals Market)
+├── frontend/                    # React frontend (Greed)
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── signals/        # Signal creation and trading components
@@ -728,7 +728,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**YOREE SIGNALS MARKET - An Intelligence Exchange where traders can start cooking signals as assets.** 🥄
+**GREED - An Intelligence Exchange where traders can start cooking signals as assets.** 🥄
 
 
 [![Monad](https://img.shields.io/badge/Powered%20by-Monad-green)](https://docs.monad.xyz)

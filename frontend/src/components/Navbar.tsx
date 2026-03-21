@@ -29,7 +29,6 @@ import {
   DarkMode as DarkModeIcon,
   Groups as CommunityIcon,
   Hub as PipelineIcon,
-  Lock as UnlinkIcon,
     Menu as MenuIcon,
     Close as CloseIcon,
     Shield as ShieldIcon,
@@ -51,7 +50,6 @@ const Navbar: React.FC = () => {
 
   const navItems = [
     { path: '/pipeline', label: 'Pipeline', icon: <PipelineIcon sx={{ fontSize: 18 }} />, badge: 'NEW' },
-    { path: '/unlink', label: 'Unlink + MON', icon: <UnlinkIcon sx={{ fontSize: 18 }} />, badge: 'NEW' },
     { path: '/portfolio', label: 'Portfolio', icon: <DashboardIcon sx={{ fontSize: 18 }} />, badge: null },
     { path: '/analytics', label: 'Analytics', icon: <AnalyticsIcon sx={{ fontSize: 18 }} />, badge: null },
     { path: '/community', label: 'Community', icon: <CommunityIcon sx={{ fontSize: 18 }} />, badge: null },
@@ -114,16 +112,14 @@ const Navbar: React.FC = () => {
                     fontWeight: 800,
                       fontSize: '0.95rem',
                       letterSpacing: '-0.01em',
-                      background: isDark
-                        ? 'linear-gradient(135deg, #fff 0%, #94a3b8 100%)'
-                        : 'linear-gradient(135deg, #1e293b 0%, #475569 100%)',
+                      background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 55%, #10b981 100%)',
                     backgroundClip: 'text',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     lineHeight: 1.2,
                   }}
                 >
-                    YOREE
+                    GREED
                 </Typography>
                 <Typography
                   variant="caption"

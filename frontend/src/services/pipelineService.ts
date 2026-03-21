@@ -1,20 +1,20 @@
 /**
- * YSM Signal Pipeline Service
+ * Greed Signal Pipeline Service
  * 
  * Orchestrates the complete flow:
- *   Social Intelligence → AI Processing → Signal Generation → Asset Discovery → Trade Execution
+ *   Social Intelligence → AI Processing → Signal Generation → Asset Discovery → Strategy Generation → Trade Execution
  * 
  * Input End (Left Side):
  *   - Your Socials: Plug-and-play social media connections (TG, TikTok, X, etc.)
- *   - Your AI: Modular AI layer (GPT-4o, custom models, YSM proprietary prompts)
+ *   - Your AI: Modular AI layer (GPT-4o, custom models, Greed proprietary prompts)
  *   - Data Ingestion: Automatic corpus building from social graph
  * 
  * Output End (Right Side):
  *   - Your Brokerages: Plug-and-play connections (Robinhood, Binance, DraftKings, etc.)
  *   - Trade Execution: Direct execution or partner redirects
- *   - Asset Routing: YSM directs users to the right platform per asset class
+ *   - Asset Routing: Greed directs users to the right platform per asset class
  * 
- * YSM in the Middle:
+ * Greed in the Middle:
  *   - Orchestrates both ends
  *   - Signal generation (input → processing)
  *   - Asset discovery and routing (processing → output)
@@ -91,7 +91,7 @@ export interface PipelineSignal {
   discoveredAssets: DiscoveredAsset[];
   routedTo: BrokerageId[];
   timestamp: string;
-  status: 'ingested' | 'processing' | 'ai_analyzing' | 'signal_generated' | 'assets_discovered' | 'routed' | 'executed';
+  status: 'ingested' | 'processing' | 'ai_analyzing' | 'signal_generated' | 'assets_discovered' | 'strategy_generated' | 'routed' | 'executed';
   // New fields for richer pipeline output
   sentiment?: 'bullish' | 'bearish' | 'neutral';
   aiReasoning?: string;
@@ -253,12 +253,12 @@ export const PLATFORM_DIRECTORY: Record<string, { name: string; url: string; cat
 
 const DEFAULT_SOCIAL_CONNECTIONS: SocialConnection[] = [
   { platform: 'x',              displayName: 'X (Twitter)',     icon: '𝕏',  isConnected: false, color: '#000000', url: 'https://x.com' },
+  { platform: 'reddit',         displayName: 'Reddit',          icon: '🔴', isConnected: false, color: '#FF4500', url: 'https://reddit.com' },
   { platform: 'telegram',       displayName: 'Telegram',        icon: '✈️', isConnected: false, color: '#0088cc', url: 'https://telegram.org' },
   { platform: 'whatsapp',       displayName: 'WhatsApp',        icon: '💬', isConnected: false, color: '#25D366', url: 'https://web.whatsapp.com' },
   { platform: 'kakao',          displayName: 'Kakao',           icon: '💬', isConnected: false, color: '#FEE500', url: 'https://www.kakaocorp.com' },
   { platform: 'tiktok',         displayName: 'TikTok',          icon: '🎵', isConnected: false, color: '#ff0050', url: 'https://tiktok.com' },
   { platform: 'discord',        displayName: 'Discord',         icon: '💬', isConnected: false, color: '#5865F2', url: 'https://discord.com' },
-  { platform: 'reddit',         displayName: 'Reddit',          icon: '🔴', isConnected: false, color: '#FF4500', url: 'https://reddit.com' },
   { platform: 'youtube',        displayName: 'YouTube',         icon: '▶️', isConnected: false, color: '#FF0000', url: 'https://youtube.com' },
   { platform: 'google-trends',  displayName: 'Google Trends',   icon: '📈', isConnected: false, color: '#4285F4', url: 'https://trends.google.com' },
   { platform: 'substack',       displayName: 'Substack',        icon: '📰', isConnected: false, color: '#FF6719', url: 'https://substack.com' },
@@ -269,7 +269,7 @@ const DEFAULT_SOCIAL_CONNECTIONS: SocialConnection[] = [
 const DEFAULT_AI_MODELS: AIModelConfig[] = [
   {
     modelId: 'ysm-proprietary',
-    displayName: 'YSM Signal Engine',
+    displayName: 'Greed Signal Engine',
     provider: 'Yoree',
     isActive: true,
     description: 'Proprietary prompts for signal intelligence',
@@ -716,6 +716,7 @@ class PipelineService {
         { name: 'AI Analysis', status: 'pending', description: 'Analyzing with AI models...' },
         { name: 'Hypothesis Generation', status: 'pending', description: 'Generating trading hypothesis...' },
         { name: 'Asset Discovery', status: 'pending', description: 'Discovering related assets...' },
+        { name: 'Alpha Strategy', status: 'pending', description: 'Building execution strategy from discovered assets...' },
         { name: 'Platform Routing', status: 'pending', description: 'Routing to best platforms...' },
       ],
     };
@@ -792,16 +793,30 @@ class PipelineService {
     this.stats.assetsDiscovered += signal.discoveredAssets.length;
     this.emitUpdate(signal);
 
-    // Step 4: Route to connected brokerages
+    // Step 4: Strategy generation (between discovery and execution routing)
     signal.pipelineSteps![4].status = 'running';
     signal.pipelineSteps![4].startedAt = new Date().toISOString();
+    signal.status = 'strategy_generated';
+    this.emitUpdate(signal);
+    await this.simulateDelay(12.5);
+    if (!signal.strategies || signal.strategies.length === 0) {
+      signal.strategies = this.generateStrategiesFromAssets(signal.hypothesis, signal.discoveredAssets);
+    }
+    signal.pipelineSteps![4].status = 'completed';
+    signal.pipelineSteps![4].completedAt = new Date().toISOString();
+    signal.pipelineSteps![4].result = `${signal.strategies.length} strategy legs generated`;
+    this.emitUpdate(signal);
+
+    // Step 5: Route to connected brokerages
+    signal.pipelineSteps![5].status = 'running';
+    signal.pipelineSteps![5].startedAt = new Date().toISOString();
     this.emitUpdate(signal);
     await this.simulateDelay(12.5);
     signal.routedTo = [...new Set(signal.discoveredAssets.map(a => a.platform))] as BrokerageId[];
     signal.status = 'routed';
-    signal.pipelineSteps![4].status = 'completed';
-    signal.pipelineSteps![4].completedAt = new Date().toISOString();
-    signal.pipelineSteps![4].result = `Routed to ${signal.routedTo.length} platforms`;
+    signal.pipelineSteps![5].status = 'completed';
+    signal.pipelineSteps![5].completedAt = new Date().toISOString();
+    signal.pipelineSteps![5].result = `Routed to ${signal.routedTo.length} platforms`;
     this.emitUpdate(signal);
 
     this.stats.totalSignalsProcessed++;
@@ -812,6 +827,46 @@ class PipelineService {
     if (this.onStepUpdate) {
       this.onStepUpdate({ ...signal });
     }
+  }
+
+  generateStrategiesFromAssets(hypothesis: string, assets: DiscoveredAsset[]): AssetStrategy[] {
+    if (!assets.length) return [];
+    const sentiment = this.detectSentiment(hypothesis);
+
+    return assets.slice(0, 8).map((asset) => {
+      const action = asset.action || (sentiment === 'bearish' ? 'short' : sentiment === 'bullish' ? 'long' : 'hold');
+      const isShort = action === 'short';
+      const isHold = action === 'hold';
+      const intradayClasses = ['Crypto', 'DeFi', 'Forex', 'Futures'];
+      const horizon = intradayClasses.includes(asset.assetClass) ? '1-3 days' : '3-14 days';
+      const trigger = isShort
+        ? 'Enter on rejection at resistance after weak retest'
+        : isHold
+          ? 'Wait for breakout or pullback confirmation before committing size'
+          : 'Enter on pullback to support after trend continuation signal';
+      const confirmation = isShort
+        ? 'Confirm with lower-high structure and weakening momentum'
+        : isHold
+          ? 'Confirm with volume expansion and clear directional break'
+          : 'Confirm with higher-low structure and momentum continuation';
+      const stopLoss = isShort ? 'Stop above recent swing high / invalidation level' : 'Stop below recent swing low / invalidation level';
+      const takeProfit = isHold
+        ? 'Take partial at first target; trail remainder only after conviction improves'
+        : 'Take partial at 1R, second target at 2R+, then trail remaining size';
+      const positionPlan = 'Risk 0.5%-2.0% of account per trade; scale in with 2-3 tranches';
+
+      return {
+        assetSymbol: asset.symbol,
+        assetClass: asset.assetClass,
+        action,
+        entry: `${trigger}. ${confirmation}.`,
+        exit: takeProfit,
+        risk: `${positionPlan}. ${stopLoss}.`,
+        timeHorizon: asset.assetClass === 'Predictions' || asset.assetClass === 'Sports Bets' ? '1-7 days' : horizon,
+        platform: asset.platformName || asset.platform,
+        platformUrl: asset.platformUrl,
+      };
+    });
   }
 
   /**
@@ -829,7 +884,7 @@ class PipelineService {
       .map(([key, p]) => `${p.name} (${p.category}) → ${p.url}`)
       .join('\n');
 
-    const prompt = `# YSM SIGNAL PIPELINE ANALYSIS
+    const prompt = `# GREED SIGNAL PIPELINE ANALYSIS
 
 You are Yoree's signal analysis engine. Analyze the following social intelligence and generate:
 1. A trading hypothesis
@@ -1085,7 +1140,7 @@ IMPORTANT:
       creator: {
         type: 'agent' as const,
         id: 'ysm-pipeline',
-        name: 'YSM Pipeline',
+        name: 'Greed Pipeline',
         isAgentAnnounced: true,
       },
       instances: [],

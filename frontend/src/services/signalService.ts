@@ -1,5 +1,5 @@
-// Signal service for Yoree Signals Market
-import { Signal, SignalCreationRequest, SignalUpdateRequest, SignalMarket, SignalPerformanceHistory, SignalThesis, MinamFeed, ScoringWeights } from '../types/signal';
+// Signal service for Greed
+import { Signal, SignalCreationRequest, SignalMarket, SignalPerformanceHistory } from '../types/signal';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:3001';
 
@@ -231,6 +231,49 @@ export class SignalService {
       totalShares: 1000000,
       createdAt: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Attempts to fetch a follower/following-derived social corpus for X, then lets
+   * the pipeline generate hypothesis/assets from that corpus.
+   * Backend endpoint is optional; frontend gracefully falls back when unavailable.
+   */
+  async getXGraphCorpus(handle: string): Promise<{ corpus: string; sourceCount: number } | null> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/social/x/corpus?handle=${encodeURIComponent(handle)}`);
+      if (!response.ok) return null;
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) return null;
+
+      const data = await response.json();
+      if (!data?.corpus || typeof data.corpus !== 'string') return null;
+
+      return {
+        corpus: data.corpus,
+        sourceCount: Number(data.sourceCount || 0),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async getRedditPublicCorpus(): Promise<{ corpus: string; sourceCount: number } | null> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/social/reddit/corpus`);
+      if (!response.ok) return null;
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) return null;
+
+      const data = await response.json();
+      if (!data?.corpus || typeof data.corpus !== 'string') return null;
+
+      return {
+        corpus: data.corpus,
+        sourceCount: Number(data.sourceCount || 0),
+      };
+    } catch {
+      return null;
+    }
   }
 }
 
