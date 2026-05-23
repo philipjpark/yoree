@@ -76,9 +76,9 @@ export async function fetchLiveGraph(
       return {
         platform,
         platformLabel: 'X (Twitter)',
-        handle,
+        handle: liveHandle,
         sourceKind: 'live',
-        sourceLabel: `Live graph · @${handle} · ${result.sourceCount} accounts`,
+        sourceLabel: `Live graph · @${liveHandle} · ${result.sourceCount} accounts`,
         sourceCount: result.sourceCount,
         posts: parseCorpusLines(result.corpus),
       };

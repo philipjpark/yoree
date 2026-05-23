@@ -20,7 +20,7 @@ import SignalBacktester from './pages/SignalBacktester';
 import Community from './pages/Community';
 
 // Greed Signal Pipeline + Monad/Unlink
-import Pipeline from './pages/Pipeline';
+import Pipeline from './pages/PipelinePage';
 import UnlinkPrivateWallet from './components/UnlinkPrivateWallet';
 import { TransactionLayerProvider } from './contexts/TransactionLayer';
 import PreFlightOverlay from './components/PreFlightOverlay';
