@@ -233,12 +233,22 @@ export class SignalService {
     };
   }
 
+  /** Whether the backend has a real X_BEARER_TOKEN configured. */
+  async getXApiStatus(): Promise<{ tokenConfigured: boolean }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/social/x/status`);
+      if (!response.ok) return { tokenConfigured: false };
+      const data = await response.json();
+      return { tokenConfigured: Boolean(data?.tokenConfigured) };
+    } catch {
+      return { tokenConfigured: false };
+    }
+  }
+
   /**
-   * Attempts to fetch a follower/following-derived social corpus for X, then lets
-   * the pipeline generate hypothesis/assets from that corpus.
-   * Backend endpoint is optional; frontend gracefully falls back when unavailable.
+   * Fetches X graph corpus from the backend. When `live` is true, corpus is from the X API.
    */
-  async getXGraphCorpus(handle: string): Promise<{ corpus: string; sourceCount: number } | null> {
+  async getXGraphCorpus(handle: string): Promise<SocialCorpusResponse | null> {
     try {
       const response = await fetch(`${this.baseUrl}/api/social/x/corpus?handle=${encodeURIComponent(handle)}`);
       if (!response.ok) return null;
@@ -246,18 +256,13 @@ export class SignalService {
       if (!contentType.includes('application/json')) return null;
 
       const data = await response.json();
-      if (!data?.corpus || typeof data.corpus !== 'string') return null;
-
-      return {
-        corpus: data.corpus,
-        sourceCount: Number(data.sourceCount || 0),
-      };
+      return parseSocialCorpusResponse(data);
     } catch {
       return null;
     }
   }
 
-  async getRedditPublicCorpus(): Promise<{ corpus: string; sourceCount: number } | null> {
+  async getRedditPublicCorpus(): Promise<SocialCorpusResponse | null> {
     try {
       const response = await fetch(`${this.baseUrl}/api/social/reddit/corpus`);
       if (!response.ok) return null;
@@ -265,16 +270,47 @@ export class SignalService {
       if (!contentType.includes('application/json')) return null;
 
       const data = await response.json();
-      if (!data?.corpus || typeof data.corpus !== 'string') return null;
-
-      return {
-        corpus: data.corpus,
-        sourceCount: Number(data.sourceCount || 0),
-      };
+      return parseSocialCorpusResponse(data);
     } catch {
       return null;
     }
   }
+}
+
+export interface SocialCorpusResponse {
+  corpus: string;
+  sourceCount: number;
+  live: boolean;
+  tokenConfigured: boolean;
+  message?: string;
+}
+
+export function isLiveSocialCorpus(result: SocialCorpusResponse | null): boolean {
+  return Boolean(
+    result?.live && result.sourceCount > 0 && typeof result.corpus === 'string' && result.corpus.trim().length > 0
+  );
+}
+
+function parseSocialCorpusResponse(data: unknown): SocialCorpusResponse | null {
+  if (!data || typeof data !== 'object') return null;
+  const row = data as Record<string, unknown>;
+  const corpus = typeof row.corpus === 'string' ? row.corpus : '';
+  const sourceCount = Number(row.sourceCount || 0);
+  const message = typeof row.message === 'string' ? row.message : undefined;
+  const looksLikeError =
+    corpus.startsWith('X token is not configured') ||
+    corpus.startsWith('Unable to fetch live X graph') ||
+    corpus.startsWith('No handle provided');
+  const live =
+    Boolean(row.live) ||
+    (sourceCount > 0 && corpus.trim().length > 0 && !message && !looksLikeError);
+  return {
+    corpus,
+    sourceCount,
+    live,
+    tokenConfigured: Boolean(row.tokenConfigured),
+    message,
+  };
 }
 
 export const signalService = new SignalService();

@@ -546,6 +546,54 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com aiplatform.g
 
 ## 🛠️ Development
 
+### Pipeline execution (strategies & routing)
+
+On **`/pipeline`**, each discovered asset includes:
+
+1. **Four default execution strategies** (per asset): Buy & Hold, Momentum, Mean Reversion, Breakout — entry, exit, and risk copy for planning.
+2. **Trade on {platform}** — opens the asset’s exchange URL in a new tab (Robinhood, Binance, Kalshi, etc.). There is **no in-app transaction / pre-flight flow** on Pipeline; execution happens on the external platform.
+
+### Lapdog (optional local LLM observability)
+
+Lapdog runs **beside** the app, not inside it. No Datadog API key is required for local use. See **[docs/LAPDOG.md](./docs/LAPDOG.md)** for install, `lapdog start`, and what appears in the dashboard when you develop Greed.
+
+### Pipeline demo corpus (default)
+
+The Pipeline uses a **general embedded X feed** by default (not a personal handle). It highlights Binance majors with **2026-05-23** reference prices (BTC ~$75.9K, ETH ~$2,062, SOL ~$168, BNB ~$628, CRCL ~$115). Turn off **General demo corpus** in the UI to use live X (`X_BEARER_TOKEN` on the backend).
+
+**Why only a few assets show up?** Discovery combines (1) what the LLM returns from the corpus, (2) keyword routing in `pipelineService.ts`, and (3) optional Nimble/web hits. A Binance-focused demo corpus will skew toward **BTC, ETH, SOL, BNB, CRCL**; stables (USDC) and macro/prediction mentions appear when the text and keywords match. Corpus keyword hits are merged with LLM output so symbols like `$SOL` are not dropped when the model returns only majors.
+
+### Git: merge `model` into `master`
+
+Do **not** commit `backend/target/` (Rust build output). After `.gitignore` includes `backend/target/`, untrack once:
+
+```powershell
+cd c:\Users\phili\Desktop\yoree
+git rm -r --cached -f backend/target
+```
+
+**Merge `model` → `master` and push:**
+
+```powershell
+# 1. Commit your work on model (source only — no .env secrets)
+git checkout model
+git add .gitignore backend/src frontend/src docs README.md
+git status   # confirm backend/target is NOT listed as new files
+git commit -m "Your message describing the pipeline and backend changes"
+
+# 2. Merge into master
+git checkout master
+git merge model
+
+# 3. Push master to GitHub
+git push origin master
+
+# 4. Optional: delete local model branch after merge
+git branch -d model
+```
+
+If `master` has diverged and you get conflicts, resolve files, then `git add` and `git commit` to finish the merge.
+
 ### Available Scripts
 
 ```bash
@@ -700,6 +748,7 @@ cargo test
 - 🍚 [Yoree Slides.pdf](./frontend/public/slides/Yoree%20Slides.pdf) (July 2025 Version)
 - 📖 [Minam Documentation](https://github.com/philipjpark/minam#readme)
 - 📖 [Syuzhet Documentation](https://github.com/philipjpark/syuzhet#readme)
+- 🔭 [Lapdog (local LLM observability)](./docs/LAPDOG.md) — optional dev tracing; **no Datadog API key** for local use
 
 ### Blockchain Networks
 - [Monad Documentation](https://docs.monad.xyz) - EVM-compatible L1 with 400ms blocks

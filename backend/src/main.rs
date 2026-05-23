@@ -3,12 +3,15 @@ use axum::{
     Router,
     Json,
     extract::{State, Path, Query},
-    http::StatusCode,
+    http::{Method, StatusCode},
 };
+use tower_http::cors::{Any, CorsLayer};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
-use tracing::{info, error};
+use tracing::{info, error, warn};
 
 mod blockchain;
 mod trading;
@@ -19,6 +22,8 @@ mod gemma_proxy;
 mod signals;
 mod minam;
 mod syuzhet;
+mod nimble;
+mod markets;
 
 use blockchain::BNBChainService;
 use trading::TradingService;
@@ -27,6 +32,8 @@ use database::DatabaseService;
 use signals::{SignalService, Signal, SignalIndex, SignalCreator, StrategyLogic, ScoringWeights};
 use minam::{MinamService, MinamFeed};
 use syuzhet::{SyuzhetService, ThesisResponse};
+use nimble::{NimbleService, CorroborateRequest, CorroborateResponse};
+use markets::{EnrichMarketsRequest, EnrichMarketsResponse, enrich_market_quotes};
 
 #[derive(Clone)]
 struct AppState {
@@ -37,6 +44,7 @@ struct AppState {
     signal_service: Arc<SignalService>,
     minam_service: Arc<MinamService>,
     syuzhet_service: Arc<SyuzhetService>,
+    nimble_service: Arc<NimbleService>,
 }
 
 #[derive(Deserialize)]
@@ -115,6 +123,43 @@ struct XCorpusQuery {
 struct XCorpusResponse {
     corpus: String,
     sourceCount: usize,
+    /// True only when corpus was fetched from the X API (not an error placeholder).
+    live: bool,
+    /// True when X_BEARER_TOKEN is set to a real value on the server.
+    tokenConfigured: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    message: Option<String>,
+}
+
+#[derive(Serialize)]
+struct XStatusResponse {
+    tokenConfigured: bool,
+}
+
+fn x_corpus_live(corpus: String, source_count: usize) -> XCorpusResponse {
+    XCorpusResponse {
+        live: source_count > 0 && !corpus.trim().is_empty(),
+        tokenConfigured: true,
+        message: None,
+        corpus,
+        sourceCount: source_count,
+    }
+}
+
+fn x_corpus_error(message: impl Into<String>, token_configured: bool) -> XCorpusResponse {
+    XCorpusResponse {
+        corpus: String::new(),
+        sourceCount: 0,
+        live: false,
+        tokenConfigured: token_configured,
+        message: Some(message.into()),
+    }
+}
+
+async fn get_x_status() -> Json<XStatusResponse> {
+    Json(XStatusResponse {
+        tokenConfigured: x_bearer_token_configured().is_some(),
+    })
 }
 
 #[derive(Deserialize)]
@@ -447,66 +492,182 @@ async fn generate_thesis(
     }
 }
 
+fn x_bearer_token_configured() -> Option<String> {
+    let token = std::env::var("X_BEARER_TOKEN")
+        .or_else(|_| std::env::var("X_API_BEARER_TOKEN"))
+        .ok()?
+        .trim()
+        .to_string();
+    if token.is_empty()
+        || token == "your_x_bearer_token_here"
+        || token == "paste_your_x_bearer_token_here"
+    {
+        return None;
+    }
+    Some(token)
+}
+
+struct XGraphBudget {
+    max_followers: u32,
+    max_following: u32,
+    max_accounts: usize,
+    tweets_per_account: usize,
+    max_lines: usize,
+}
+
+impl XGraphBudget {
+    fn from_env() -> Self {
+        Self {
+            max_followers: env_u32("X_GRAPH_MAX_FOLLOWERS", 5).clamp(1, 100),
+            max_following: env_u32("X_GRAPH_MAX_FOLLOWING", 5).clamp(1, 100),
+            max_accounts: env_usize("X_GRAPH_MAX_ACCOUNTS", 5).clamp(1, 20),
+            tweets_per_account: env_usize("X_GRAPH_TWEETS_PER_ACCOUNT", 1).clamp(1, 5),
+            max_lines: env_usize("X_GRAPH_MAX_LINES", 5).clamp(3, 80),
+        }
+    }
+}
+
+fn x_graph_cache_ttl() -> Duration {
+    let secs = env_u64("X_GRAPH_CACHE_SECONDS", 3600).clamp(60, 86_400);
+    Duration::from_secs(secs)
+}
+
+fn env_u32(key: &str, default: u32) -> u32 {
+    std::env::var(key)
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(default)
+}
+
+fn env_usize(key: &str, default: usize) -> usize {
+    std::env::var(key)
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(default)
+}
+
+fn env_u64(key: &str, default: u64) -> u64 {
+    std::env::var(key)
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(default)
+}
+
+struct XCorpusCacheEntry {
+    corpus: String,
+    source_count: usize,
+    stored_at: Instant,
+}
+
+fn x_corpus_cache() -> &'static Mutex<HashMap<String, XCorpusCacheEntry>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, XCorpusCacheEntry>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn get_cached_x_corpus(handle: &str) -> Option<(String, usize)> {
+    let ttl = x_graph_cache_ttl();
+    let cache = x_corpus_cache().lock().ok()?;
+    let entry = cache.get(handle)?;
+    if entry.stored_at.elapsed() > ttl {
+        return None;
+    }
+    Some((entry.corpus.clone(), entry.source_count))
+}
+
+fn set_cached_x_corpus(handle: &str, corpus: String, source_count: usize) {
+    if let Ok(mut cache) = x_corpus_cache().lock() {
+        cache.insert(
+            handle.to_string(),
+            XCorpusCacheEntry {
+                corpus,
+                source_count,
+                stored_at: Instant::now(),
+            },
+        );
+    }
+}
+
 async fn get_x_corpus(
     Query(query): Query<XCorpusQuery>,
 ) -> Json<XCorpusResponse> {
     let handle = query.handle.trim().trim_start_matches('@').to_string();
     if handle.is_empty() {
-        return Json(XCorpusResponse {
-            corpus: "No handle provided.".to_string(),
-            sourceCount: 0,
-        });
+        return Json(x_corpus_error("No handle provided.", false));
     }
 
-    let bearer = std::env::var("X_BEARER_TOKEN")
-        .or_else(|_| std::env::var("X_API_BEARER_TOKEN"))
-        .ok();
+    if let Some((corpus, source_count)) = get_cached_x_corpus(&handle) {
+        info!("X corpus cache hit for @{} ({} sources)", handle, source_count);
+        return Json(x_corpus_live(corpus, source_count));
+    }
 
-    let Some(token) = bearer else {
-        return Json(XCorpusResponse {
-            corpus: format!(
-                "X token is not configured. Set X_BEARER_TOKEN on backend. Fallback corpus for @{}.",
+    let Some(token) = x_bearer_token_configured() else {
+        return Json(x_corpus_error(
+            format!(
+                "Set X_BEARER_TOKEN in backend/.env (replace paste_your_x_bearer_token_here) to load live data for @{}.",
                 handle
             ),
-            sourceCount: 0,
-        });
+            false,
+        ));
     };
 
-    match fetch_x_graph_corpus(&handle, &token).await {
-        Ok((corpus, source_count)) => Json(XCorpusResponse {
-            corpus,
-            sourceCount: source_count,
-        }),
+    let budget = XGraphBudget::from_env();
+    match fetch_x_graph_corpus(&handle, &token, &budget).await {
+        Ok((corpus, source_count)) => {
+            set_cached_x_corpus(&handle, corpus.clone(), source_count);
+            info!(
+                "X corpus fetched for @{} — {} sources, {} lines (budget: {} accounts, cache {}s)",
+                handle,
+                source_count,
+                corpus.lines().count(),
+                budget.max_accounts,
+                x_graph_cache_ttl().as_secs()
+            );
+            Json(x_corpus_live(corpus, source_count))
+        }
         Err(e) => {
             error!("Failed to fetch X corpus: {}", e);
-            Json(XCorpusResponse {
-                corpus: format!(
-                    "Unable to fetch live X graph corpus for @{}. Check X token/scopes/tier. {}",
+            Json(x_corpus_error(
+                format!(
+                    "Unable to fetch live X graph for @{}. Check token, scopes, and API tier. {}",
                     handle, e
                 ),
-                sourceCount: 0,
-            })
+                true,
+            ))
         }
     }
 }
 
 async fn get_reddit_corpus() -> Json<XCorpusResponse> {
     match fetch_reddit_public_corpus().await {
-        Ok((corpus, source_count)) => Json(XCorpusResponse {
-            corpus,
-            sourceCount: source_count,
-        }),
+        Ok((corpus, source_count)) => Json(x_corpus_live(corpus, source_count)),
         Err(e) => {
             error!("Failed to fetch Reddit corpus: {}", e);
-            Json(XCorpusResponse {
-                corpus: format!(
-                    "Unable to fetch Reddit corpus from public subreddits. {}",
-                    e
-                ),
-                sourceCount: 0,
-            })
+            Json(x_corpus_error(
+                format!("Unable to fetch Reddit corpus from public subreddits. {}", e),
+                false,
+            ))
         }
     }
+}
+
+async fn web_corroborate(
+    State(_state): State<AppState>,
+    Json(req): Json<CorroborateRequest>,
+) -> Result<Json<CorroborateResponse>, StatusCode> {
+    if req.corpus.trim().is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let response = _state.nimble_service.corroborate(req).await;
+    Ok(Json(response))
+}
+
+async fn enrich_markets(
+    Json(req): Json<EnrichMarketsRequest>,
+) -> Result<Json<EnrichMarketsResponse>, StatusCode> {
+    if req.assets.is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    Ok(Json(enrich_market_quotes(req).await))
 }
 
 async fn fetch_reddit_public_corpus() -> Result<(String, usize), String> {
@@ -568,9 +729,20 @@ async fn fetch_reddit_public_corpus() -> Result<(String, usize), String> {
     Ok((corpus_lines.join("\n"), source_count))
 }
 
-async fn fetch_x_graph_corpus(handle: &str, bearer_token: &str) -> Result<(String, usize), String> {
+async fn fetch_x_graph_corpus(
+    handle: &str,
+    bearer_token: &str,
+    budget: &XGraphBudget,
+) -> Result<(String, usize), String> {
     let client = reqwest::Client::new();
     let auth = format!("Bearer {}", bearer_token);
+
+    warn!(
+        "X live fetch for @{} — up to {} API calls (1 lookup + followers + following + up to {} tweet pulls)",
+        handle,
+        3 + budget.max_accounts,
+        budget.max_accounts
+    );
 
     let lookup_url = format!(
         "https://api.x.com/2/users/by/username/{}?user.fields=username",
@@ -594,12 +766,12 @@ async fn fetch_x_graph_corpus(handle: &str, bearer_token: &str) -> Result<(Strin
     };
 
     let followers_url = format!(
-        "https://api.x.com/2/users/{}/followers?max_results=40&user.fields=username",
-        user.id
+        "https://api.x.com/2/users/{}/followers?max_results={}&user.fields=username",
+        user.id, budget.max_followers
     );
     let following_url = format!(
-        "https://api.x.com/2/users/{}/following?max_results=40&user.fields=username",
-        user.id
+        "https://api.x.com/2/users/{}/following?max_results={}&user.fields=username",
+        user.id, budget.max_following
     );
 
     let followers_resp = client
@@ -632,7 +804,12 @@ async fn fetch_x_graph_corpus(handle: &str, bearer_token: &str) -> Result<(Strin
 
     let mut unique_users: Vec<XUser> = Vec::new();
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
-    for u in followers_json.data.unwrap_or_default().into_iter().chain(following_json.data.unwrap_or_default()) {
+    for u in followers_json
+        .data
+        .unwrap_or_default()
+        .into_iter()
+        .chain(following_json.data.unwrap_or_default())
+    {
         if seen.insert(u.id.clone()) {
             unique_users.push(u);
         }
@@ -640,11 +817,12 @@ async fn fetch_x_graph_corpus(handle: &str, bearer_token: &str) -> Result<(Strin
 
     let mut corpus_lines: Vec<String> = Vec::new();
     let mut source_count = 0usize;
+    let tweet_max_results = budget.tweets_per_account.max(5) as u32;
 
-    for account in unique_users.into_iter().take(20) {
+    for account in unique_users.into_iter().take(budget.max_accounts) {
         let tweets_url = format!(
-            "https://api.x.com/2/users/{}/tweets?max_results=5&exclude=retweets,replies&tweet.fields=created_at",
-            account.id
+            "https://api.x.com/2/users/{}/tweets?max_results={}&exclude=retweets,replies&tweet.fields=created_at",
+            account.id, tweet_max_results
         );
         let tweets_resp = client
             .get(&tweets_url)
@@ -665,13 +843,13 @@ async fn fetch_x_graph_corpus(handle: &str, bearer_token: &str) -> Result<(Strin
         }
 
         source_count += 1;
-        for t in tweets.into_iter().take(3) {
+        for t in tweets.into_iter().take(budget.tweets_per_account) {
             let clean = t.text.replace('\n', " ").trim().to_string();
             if !clean.is_empty() {
                 corpus_lines.push(format!("@{}: {}", account.username, clean));
             }
         }
-        if corpus_lines.len() >= 80 {
+        if corpus_lines.len() >= budget.max_lines {
             break;
         }
     }
@@ -680,6 +858,7 @@ async fn fetch_x_graph_corpus(handle: &str, bearer_token: &str) -> Result<(Strin
         return Err("no accessible tweets found from followers/following".to_string());
     }
 
+    corpus_lines.truncate(budget.max_lines);
     Ok((corpus_lines.join("\n"), source_count))
 }
 
@@ -690,8 +869,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     info!("🚀 Starting YOREE Rust Backend with Signal Markets...");
     
-    // Load configuration
+    // Load configuration (.env in cwd or backend/.env when run from repo root)
     dotenv::dotenv().ok();
+    let _ = dotenv::from_filename("backend/.env");
     let config = config::Config::from_env()?;
     
     // Initialize services
@@ -702,6 +882,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let signal_service = Arc::new(SignalService::new());
     let minam_service = Arc::new(MinamService::new());
     let syuzhet_service = Arc::new(SyuzhetService::new());
+    let nimble_service = Arc::new(NimbleService::new());
     
     let state = AppState {
         bnb_service,
@@ -711,6 +892,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         signal_service,
         minam_service,
         syuzhet_service,
+        nimble_service,
     };
     
     // Build router
@@ -733,10 +915,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/minam/feeds/:id", get(get_minam_feed))
         .route("/api/minam/feeds/:id/data", get(get_minam_feed_data))
         // Social ingestion API
+        .route("/api/social/x/status", get(get_x_status))
         .route("/api/social/x/corpus", get(get_x_corpus))
         .route("/api/social/reddit/corpus", get(get_reddit_corpus))
+        // Web corroboration (Nimble + SEC)
+        .route("/api/web/corroborate", post(web_corroborate))
+        .route("/api/markets/enrich", post(enrich_markets))
         // Syuzhet API
         .route("/api/thesis/generate", post(generate_thesis))
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::PATCH,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ])
+                .allow_headers(Any),
+        )
         .with_state(state);
     
     // Start server

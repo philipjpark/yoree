@@ -1,7 +1,10 @@
-# Rust specific
+# Rust specific (repo root and backend crate)
 /target/
+backend/target/
+**/target/
 **/*.rs.bk
 Cargo.lock
+backend/Cargo.lock
 
 # Node/React specific
 node_modules/
@@ -34,6 +37,7 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+backend/.env
 
 # Configuration files with sensitive data
 config/agent_config.toml

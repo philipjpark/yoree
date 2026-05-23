@@ -98,6 +98,37 @@ export interface PipelineSignal {
   strategies?: AssetStrategy[];
   pipelineSteps?: PipelineStep[];
   llmExecution?: 'llm' | 'fallback';
+  webEvidence?: WebEvidenceItem[];
+  webCorroborationMeta?: {
+    tickers: string[];
+    nimbleCallsUsed: number;
+    cacheHits: number;
+    webDiscoveredCount?: number;
+  };
+}
+
+export interface WebDiscoveredAssetInput {
+  symbol: string;
+  name: string;
+  asset_class: string;
+  source_url: string;
+  via?: string;
+}
+
+export interface WebEvidenceItem {
+  source_type: string;
+  title: string;
+  url: string;
+  snippet: string;
+  fetched_at: string;
+  via: string;
+}
+
+export interface ProcessSignalOptions {
+  webCorroborationBlock?: string;
+  webEvidence?: WebEvidenceItem[];
+  webCorroborationMeta?: PipelineSignal['webCorroborationMeta'];
+  webDiscoveredAssets?: WebDiscoveredAssetInput[];
 }
 
 export interface PipelineStep {
@@ -119,6 +150,12 @@ export interface DiscoveredAsset {
   confidence: number;
   action?: string; // 'long' | 'short' | 'hold' | 'hedge'
   reasoning?: string;
+  livePrice?: number;
+  change24h?: number;
+  change24hPercent?: number;
+  priceCurrency?: string;
+  marketSource?: string;
+  marketFetchedAt?: string;
 }
 
 export interface AssetStrategy {
@@ -714,8 +751,14 @@ class PipelineService {
   async processSignal(
     source: SocialPlatform,
     rawContent: string,
-    preferredAI: AIModel = 'gpt-4o'
+    preferredAI: AIModel = 'gpt-4o',
+    options?: ProcessSignalOptions
   ): Promise<PipelineSignal> {
+    const hasWeb = Boolean(options?.webCorroborationBlock?.trim());
+    const enrichedContent = hasWeb
+      ? `${rawContent}\n\n${options!.webCorroborationBlock!.trim()}`
+      : rawContent;
+
     const signal: PipelineSignal = {
       id: `sig-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       source,
@@ -728,8 +771,18 @@ class PipelineService {
       timestamp: new Date().toISOString(),
       status: 'ingested',
       llmExecution: 'fallback',
+      webEvidence: options?.webEvidence,
+      webCorroborationMeta: options?.webCorroborationMeta,
       pipelineSteps: [
         { name: 'Ingestion', status: 'completed', description: 'Signal ingested from social source' },
+        {
+          name: 'Web Corroboration',
+          status: hasWeb ? 'completed' : 'pending',
+          description: hasWeb
+            ? `SEC + web evidence (${options?.webEvidence?.length ?? 0} sources)`
+            : 'Awaiting web corroboration (optional)',
+          ...(hasWeb ? { completedAt: new Date().toISOString() } : {}),
+        },
         { name: 'AI Analysis', status: 'pending', description: 'Analyzing with AI models...' },
         { name: 'Hypothesis Generation', status: 'pending', description: 'Generating trading hypothesis...' },
         { name: 'Asset Discovery', status: 'pending', description: 'Discovering related assets...' },
@@ -741,9 +794,20 @@ class PipelineService {
     this.signals.unshift(signal);
     this.emitUpdate(signal);
 
-    // Step 1: AI Processing
-    signal.pipelineSteps![1].status = 'running';
-    signal.pipelineSteps![1].startedAt = new Date().toISOString();
+    // Step 2: AI Processing (index 1 = Web Corroboration when present)
+    const aiStep = 2;
+    const hypothesisStep = 3;
+    const assetStep = 4;
+    const strategyStep = 5;
+    const routeStep = 6;
+
+    if (hasWeb) {
+      signal.pipelineSteps![1].status = 'completed';
+      signal.pipelineSteps![1].completedAt = new Date().toISOString();
+    }
+
+    signal.pipelineSteps![aiStep].status = 'running';
+    signal.pipelineSteps![aiStep].startedAt = new Date().toISOString();
     signal.status = 'ai_analyzing';
     this.emitUpdate(signal);
 
@@ -752,7 +816,7 @@ class PipelineService {
     this.apiKey = this.resolveOpenAIKey();
     if (this.apiKey) {
       try {
-        const aiResult = await this.callOpenAI(rawContent);
+        const aiResult = await this.callOpenAI(enrichedContent);
         signal.hypothesis = aiResult.hypothesis;
         signal.confidence = aiResult.confidence;
         signal.sentiment = aiResult.sentiment;
@@ -774,7 +838,7 @@ class PipelineService {
         const manualOverride = this.extractManualOverride(rawContent);
         if (manualOverride) {
           try {
-            const focusedInput = this.buildFocusedManualInput(rawContent, manualOverride);
+            const focusedInput = this.buildFocusedManualInput(enrichedContent, manualOverride);
             const retryResult = await this.callOpenAI(focusedInput);
             signal.hypothesis = retryResult.hypothesis;
             signal.confidence = retryResult.confidence;
@@ -800,7 +864,7 @@ class PipelineService {
 
         if (!signal.hypothesis) {
           console.warn('OpenAI call failed, falling back to local analysis:', err);
-          const fallbackInput = this.getFallbackAnalysisInput(rawContent);
+          const fallbackInput = this.getFallbackAnalysisInput(enrichedContent);
           signal.hypothesis = this.generateLocalHypothesis(fallbackInput);
           signal.confidence = Math.floor(Math.random() * 30) + 70;
           signal.sentiment = this.detectSentiment(fallbackInput);
@@ -811,7 +875,7 @@ class PipelineService {
     } else {
       // Local fallback
       await this.simulateDelay(25);
-      const fallbackInput = this.getFallbackAnalysisInput(rawContent);
+      const fallbackInput = this.getFallbackAnalysisInput(enrichedContent);
       signal.hypothesis = this.generateLocalHypothesis(fallbackInput);
       signal.confidence = Math.floor(Math.random() * 30) + 70;
       signal.sentiment = this.detectSentiment(fallbackInput);
@@ -819,61 +883,83 @@ class PipelineService {
       signal.llmExecution = 'fallback';
     }
 
-    signal.pipelineSteps![1].status = 'completed';
-    signal.pipelineSteps![1].completedAt = new Date().toISOString();
+    signal.pipelineSteps![aiStep].status = 'completed';
+    signal.pipelineSteps![aiStep].completedAt = new Date().toISOString();
     signal.status = 'signal_generated';
     this.emitUpdate(signal);
 
-    // Step 2: Mark hypothesis step
-    signal.pipelineSteps![2].status = 'running';
-    signal.pipelineSteps![2].startedAt = new Date().toISOString();
+    // Hypothesis step
+    signal.pipelineSteps![hypothesisStep].status = 'running';
+    signal.pipelineSteps![hypothesisStep].startedAt = new Date().toISOString();
     this.emitUpdate(signal);
     await this.simulateDelay(25);
-    signal.pipelineSteps![2].status = 'completed';
-    signal.pipelineSteps![2].completedAt = new Date().toISOString();
-    signal.pipelineSteps![2].result = signal.hypothesis.slice(0, 80) + '...';
+    signal.pipelineSteps![hypothesisStep].status = 'completed';
+    signal.pipelineSteps![hypothesisStep].completedAt = new Date().toISOString();
+    signal.pipelineSteps![hypothesisStep].result = signal.hypothesis.slice(0, 80) + '...';
     this.emitUpdate(signal);
 
-    // Step 3: Asset Discovery (already done above, just animate)
-    signal.pipelineSteps![3].status = 'running';
-    signal.pipelineSteps![3].startedAt = new Date().toISOString();
+    // Asset Discovery + live market quotes
+    signal.pipelineSteps![assetStep].status = 'running';
+    signal.pipelineSteps![assetStep].startedAt = new Date().toISOString();
+    signal.pipelineSteps![assetStep].description = 'Fetching live prices across asset classes…';
     signal.status = 'assets_discovered';
     this.emitUpdate(signal);
+    if (options?.webDiscoveredAssets?.length) {
+      signal.discoveredAssets = this.mergeWebDiscoveredAssets(
+        signal.discoveredAssets,
+        options.webDiscoveredAssets
+      );
+    }
+    signal.discoveredAssets = this.mergeDiscoveredAssets(
+      signal.discoveredAssets,
+      this.discoverAndRouteAssets(enrichedContent)
+    );
+    signal.discoveredAssets = await this.enrichAssetsLive(signal.discoveredAssets);
+    this.emitUpdate(signal);
     await this.simulateDelay(25);
-    signal.pipelineSteps![3].status = 'completed';
-    signal.pipelineSteps![3].completedAt = new Date().toISOString();
-    signal.pipelineSteps![3].result = `${signal.discoveredAssets.length} assets found`;
+    signal.pipelineSteps![assetStep].status = 'completed';
+    signal.pipelineSteps![assetStep].completedAt = new Date().toISOString();
+    signal.pipelineSteps![assetStep].result = `${signal.discoveredAssets.length} assets found`;
     this.stats.assetsDiscovered += signal.discoveredAssets.length;
     this.emitUpdate(signal);
 
-    // Step 4: Strategy generation (between discovery and execution routing)
-    signal.pipelineSteps![4].status = 'running';
-    signal.pipelineSteps![4].startedAt = new Date().toISOString();
+    // Strategy generation (between discovery and execution routing)
+    signal.pipelineSteps![strategyStep].status = 'running';
+    signal.pipelineSteps![strategyStep].startedAt = new Date().toISOString();
     signal.status = 'strategy_generated';
     this.emitUpdate(signal);
     await this.simulateDelay(12.5);
     if (!signal.strategies || signal.strategies.length === 0) {
       signal.strategies = this.generateStrategiesFromAssets(signal.hypothesis, signal.discoveredAssets);
     }
-    signal.pipelineSteps![4].status = 'completed';
-    signal.pipelineSteps![4].completedAt = new Date().toISOString();
-    signal.pipelineSteps![4].result = `${signal.strategies.length} strategy legs generated`;
+    signal.pipelineSteps![strategyStep].status = 'completed';
+    signal.pipelineSteps![strategyStep].completedAt = new Date().toISOString();
+    signal.pipelineSteps![strategyStep].result = `${signal.strategies.length} strategy legs generated`;
     this.emitUpdate(signal);
 
-    // Step 5: Route to connected brokerages
-    signal.pipelineSteps![5].status = 'running';
-    signal.pipelineSteps![5].startedAt = new Date().toISOString();
+    // Route to connected brokerages
+    signal.pipelineSteps![routeStep].status = 'running';
+    signal.pipelineSteps![routeStep].startedAt = new Date().toISOString();
     this.emitUpdate(signal);
     await this.simulateDelay(12.5);
     signal.routedTo = [...new Set(signal.discoveredAssets.map(a => a.platform))] as BrokerageId[];
     signal.status = 'routed';
-    signal.pipelineSteps![5].status = 'completed';
-    signal.pipelineSteps![5].completedAt = new Date().toISOString();
-    signal.pipelineSteps![5].result = `Routed to ${signal.routedTo.length} platforms`;
+    signal.pipelineSteps![routeStep].status = 'completed';
+    signal.pipelineSteps![routeStep].completedAt = new Date().toISOString();
+    signal.pipelineSteps![routeStep].result = `Routed to ${signal.routedTo.length} platforms`;
     this.emitUpdate(signal);
 
     this.stats.totalSignalsProcessed++;
     return signal;
+  }
+
+  private async enrichAssetsLive(assets: DiscoveredAsset[]): Promise<DiscoveredAsset[]> {
+    try {
+      const { enrichAssetsWithLiveQuotes } = await import('./assetMarketService');
+      return enrichAssetsWithLiveQuotes(assets);
+    } catch {
+      return assets;
+    }
   }
 
   private emitUpdate(signal: PipelineSignal) {
@@ -1607,13 +1693,80 @@ Return JSON:
       .slice(0, 5);
   }
 
+  /** Union LLM assets with keyword/corpus routing (keeps higher-confidence entry per symbol). */
+  private mergeDiscoveredAssets(existing: DiscoveredAsset[], extra: DiscoveredAsset[]): DiscoveredAsset[] {
+    const bestBySymbol = new Map<string, DiscoveredAsset>();
+    for (const a of existing) {
+      bestBySymbol.set(a.symbol.toUpperCase(), a);
+    }
+    for (const a of extra) {
+      const key = a.symbol.toUpperCase();
+      const prev = bestBySymbol.get(key);
+      if (!prev || (a.confidence || 0) > (prev.confidence || 0)) {
+        bestBySymbol.set(key, a);
+      }
+    }
+    return [...bestBySymbol.values()];
+  }
+
+  private mergeWebDiscoveredAssets(
+    existing: DiscoveredAsset[],
+    webAssets: WebDiscoveredAssetInput[]
+  ): DiscoveredAsset[] {
+    const bestBySymbol = new Map<string, DiscoveredAsset>();
+    for (const a of existing) {
+      bestBySymbol.set(a.symbol.toUpperCase(), a);
+    }
+
+    for (const w of webAssets) {
+      const symbol = (w.symbol || '').toUpperCase();
+      if (!symbol || bestBySymbol.has(symbol)) continue;
+
+      const routed = this.routeAssetToplatforms(symbol);
+      if (routed.length) {
+        const top = [...routed].sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0];
+        bestBySymbol.set(symbol, {
+          ...top,
+          name: w.name || top.name,
+          reasoning: `Surfaced via Nimble/web search (${w.via || 'web'}).`,
+        });
+        continue;
+      }
+
+      const assetClass =
+        w.asset_class === 'stocks'
+          ? 'Stocks'
+          : w.asset_class === 'predictions'
+          ? 'Predictions'
+          : 'Crypto';
+      const platform =
+        assetClass === 'Stocks' ? 'robinhood' : assetClass === 'Predictions' ? 'polymarket' : 'binance';
+      const brokerage = this.brokerages.find((b) => b.id === platform);
+
+      bestBySymbol.set(symbol, {
+        symbol,
+        name: w.name || symbol,
+        assetClass,
+        platform,
+        platformName: brokerage?.displayName || (assetClass === 'Stocks' ? 'Robinhood' : 'Binance'),
+        platformUrl: w.source_url || this.getPlatformUrlForAsset(symbol, assetClass),
+        confidence: 78,
+        action: 'watch',
+        reasoning: `Non-mainstream candidate from Nimble deep search (${w.via || 'web'}).`,
+      });
+    }
+
+    return [...bestBySymbol.values()];
+  }
+
   private discoverAndRouteAssets(rawContent: string): DiscoveredAsset[] {
     const content = rawContent.toLowerCase();
     const discovered: DiscoveredAsset[] = [];
 
     // Crypto keywords → Binance/Coinbase/Unlink
     const cryptoPatterns: Record<string, string> = {
-      'btc|bitcoin': 'BTC', 'eth|ethereum': 'ETH', 'sol|solana': 'SOL',
+      'btc|bitcoin': 'BTC', 'eth|ethereum': 'ETH', 'sol|solana|solusdt': 'SOL',
+      'bnb|\\bbsc\\b': 'BNB', 'usdc': 'USDC', 'usdt|tether': 'USDT',
       'mon|monad': 'MON', 'avax|avalanche': 'AVAX', 'link|chainlink': 'LINK',
     };
     for (const [pattern, symbol] of Object.entries(cryptoPatterns)) {
@@ -1626,6 +1779,7 @@ Return JSON:
     const stockPatterns: Record<string, string> = {
       'aapl|apple': 'AAPL', 'tsla|tesla': 'TSLA', 'nvda|nvidia': 'NVDA',
       'msft|microsoft': 'MSFT', 'googl|google|alphabet': 'GOOGL',
+      'crcl|circle internet|\\bcircle\\b.*usdc': 'CRCL', 'coin|coinbase': 'COIN',
       'oil|crude|petroleum|xom|exxon': 'XOM',
       'drone|uav|unmanned|aerovironment|avav': 'AVAV',
       'kratos|ktos|defense drone': 'KTOS',
@@ -1693,7 +1847,53 @@ Return JSON:
    * Convert a pipeline signal into a proper Signal object and save it
    * to localStorage so it shows up in Portfolio and Markets.
    */
-  createSignalFromPipeline(pipelineSignal: PipelineSignal): any {
+  /**
+   * Persist pipeline output as a real Greed signal (backend + local portfolio).
+   */
+  async persistPipelineSignal(
+    pipelineSignal: PipelineSignal,
+    meta?: { xHandle?: string; xSourceCount?: number }
+  ): Promise<{ id: string; savedToBackend: boolean }> {
+    const local = this.createSignalFromPipeline(pipelineSignal, meta);
+
+    let savedToBackend = false;
+    try {
+      const { signalService } = await import('./signalService');
+      const primary = pipelineSignal.discoveredAssets[0]?.symbol || 'MULTI';
+      const backendSignal = await signalService.createSignal({
+        underlyingAsset: primary,
+        hypothesis: pipelineSignal.hypothesis,
+        rawInput: pipelineSignal.rawContent.slice(0, 8000),
+        feed1Id: 'pipeline-x-social',
+        feed2Id: 'pipeline-web-corroboration',
+        creator: {
+          type: 'agent',
+          id: 'greed-pipeline',
+          name: 'Greed Pipeline',
+          isAgentAnnounced: true,
+        },
+        scoringWeights: {
+          accuracy: 0.25,
+          performance: 0.35,
+          consensus: 0.2,
+          composite: 0.2,
+        },
+      });
+      if (backendSignal?.id) {
+        local.id = backendSignal.id;
+        savedToBackend = true;
+      }
+    } catch (e) {
+      console.warn('Backend signal save failed; kept local copy:', e);
+    }
+
+    return { id: local.id, savedToBackend };
+  }
+
+  createSignalFromPipeline(
+    pipelineSignal: PipelineSignal,
+    meta?: { xHandle?: string; xSourceCount?: number }
+  ): any {
     const now = new Date().toISOString();
     const signalId = `signal-pipeline-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -1744,7 +1944,25 @@ Return JSON:
         aiReasoning: pipelineSignal.aiReasoning,
         strategies: pipelineSignal.strategies,
         discoveredAssets: pipelineSignal.discoveredAssets,
+        webEvidence: pipelineSignal.webEvidence,
+        webCorroborationMeta: pipelineSignal.webCorroborationMeta,
+        llmExecution: pipelineSignal.llmExecution,
+        xHandle: meta?.xHandle,
+        xSourceCount: meta?.xSourceCount,
       },
+      validationSources: (pipelineSignal.webEvidence || []).map((ev, i) => ({
+        id: `web-${i}-${Date.now()}`,
+        type: ev.source_type === 'sec_edgar' ? 'news' : 'twitter',
+        name: ev.title,
+        description: ev.snippet.slice(0, 200),
+        url: ev.url,
+        data: {
+          sentiment: pipelineSignal.sentiment,
+          score: pipelineSignal.confidence,
+          lastUpdate: ev.fetched_at,
+        },
+        isConnected: true,
+      })),
     };
 
     // Save to localStorage - Portfolio

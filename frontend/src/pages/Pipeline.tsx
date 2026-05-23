@@ -57,23 +57,33 @@ import {
   ContentCopy as CopyIcon,
 } from '@mui/icons-material';
 import { useTheme } from '../contexts/ThemeContext';
-import { useTransactionLayer } from '../contexts/TransactionLayer';
 import { useNavigate } from 'react-router-dom';
+import {
+  DEFAULT_EXECUTION_STRATEGIES,
+  DefaultStrategyId,
+  getDefaultStrategy,
+} from '../constants/defaultExecutionStrategies';
 import pipelineService, {
   SocialPlatform,
   AIModel,
   BrokerageId,
   PipelineSignal,
   DiscoveredAsset,
-  AssetStrategy,
   PipelineStep,
   PLATFORM_DIRECTORY,
   DATA_APIS,
 } from '../services/pipelineService';
 import monadService from '../services/monadService';
 import monadContractService from '../services/monadContractService';
-import { signalService } from '../services/signalService';
-import { DEMO_X_CORPUS } from '../constants/demoXCorpus';
+import { isLiveSocialCorpus, signalService } from '../services/signalService';
+import { DEMO_X_CORPUS, DEMO_X_CORPUS_LABEL } from '../constants/demoXCorpus';
+import { corroborateCorpus, WebEvidence } from '../services/webCorroborationService';
+import PipelineFlowStepper, { PipelineFlowStepId } from '../components/pipeline/PipelineFlowStepper';
+import PipelineHowItWorks from '../components/pipeline/PipelineHowItWorks';
+import LiveGraphDrawer from '../components/pipeline/LiveGraphDrawer';
+import PipelineSignalResult from '../components/pipeline/PipelineSignalResult';
+import { formatUsdPrice } from '../services/assetMarketService';
+import { fetchLiveGraph, LiveGraphData } from '../services/liveGraphService';
 
 const categoryIcons: Record<string, React.ReactNode> = {
   'Predictions': <CasinoIcon sx={{ fontSize: 16 }} />,
@@ -101,7 +111,6 @@ const categoryColors: Record<string, string> = {
 
 const Pipeline: React.FC = () => {
   const { theme } = useTheme();
-  const { state: txState, executeWithPreFlight } = useTransactionLayer();
   const navigate = useNavigate();
   const isDark = theme.palette.mode === 'dark';
 
@@ -118,7 +127,7 @@ const Pipeline: React.FC = () => {
   const [showDirectory, setShowDirectory] = useState(false);
   const [showAPIs, setShowAPIs] = useState(false);
   const [activeSignal, setActiveSignal] = useState<PipelineSignal | null>(null);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [liveGraphPlatform, setLiveGraphPlatform] = useState<SocialPlatform | null>(null);
   const [createdSignalId, setCreatedSignalId] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -131,7 +140,6 @@ const Pipeline: React.FC = () => {
   const [corpusPreview, setCorpusPreview] = useState('');
   const [corpusBuilt, setCorpusBuilt] = useState(false);
   const [isBuildingCorpus, setIsBuildingCorpus] = useState(false);
-  const [selectedAssetKeys, setSelectedAssetKeys] = useState<string[]>([]);
   const [lastAnalysisInput, setLastAnalysisInput] = useState('');
   const [corpusMeta, setCorpusMeta] = useState<{
     sourceLabel: string;
@@ -139,8 +147,38 @@ const Pipeline: React.FC = () => {
     xSources: number;
     redditSources: number;
   } | null>(null);
-  const xHandle = process.env.REACT_APP_X_HANDLE || 'bibim_official';
-  const staticXCorpusUrl = 'http://127.0.0.1:3001/api/social/x/corpus?handle=bibim_official';
+  const [isCorroboratingWeb, setIsCorroboratingWeb] = useState(false);
+  const [lastWebEvidence, setLastWebEvidence] = useState<WebEvidence[]>([]);
+  const [savedToBackend, setSavedToBackend] = useState(false);
+  const [isSavingSignal, setIsSavingSignal] = useState(false);
+  const [showAdvancedSources, setShowAdvancedSources] = useState(false);
+  const [socialXHandle, setSocialXHandle] = useState(
+    () => process.env.REACT_APP_X_HANDLE || 'bibim_official'
+  );
+  const [liveGraphOpen, setLiveGraphOpen] = useState(false);
+  const [liveGraphData, setLiveGraphData] = useState<LiveGraphData | null>(null);
+  const [liveGraphLoading, setLiveGraphLoading] = useState(false);
+  const [useDemoXCorpus, setUseDemoXCorpus] = useState(
+    () => process.env.REACT_APP_USE_DEMO_X_CORPUS === 'true'
+  );
+  const [xTokenConfigured, setXTokenConfigured] = useState(false);
+  const [corpusError, setCorpusError] = useState<string | null>(null);
+  const [assetStrategyByKey, setAssetStrategyByKey] = useState<Record<string, DefaultStrategyId>>({});
+  const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:3001';
+  const socialsConnected = socialConnections.some((s) => s.isConnected);
+  const hasRunSource = socialConnections.some(
+    (s) => s.isConnected && runSources.includes(s.platform)
+  );
+
+  const flowStep: PipelineFlowStepId = !hasRunSource
+    ? 'connect'
+    : isProcessing || isCorroboratingWeb
+    ? 'analyze'
+    : activeSignal && !isProcessing
+    ? createdSignalId
+      ? 'act'
+      : 'review'
+    : 'connect';
   const socialAccentColor = (platform: SocialPlatform, color: string) =>
     platform === 'reddit' ? '#f59e0b' : color;
 
@@ -206,6 +244,36 @@ const Pipeline: React.FC = () => {
     }
   }, []);
 
+  const refreshXApiStatus = useCallback(() => {
+    void signalService.getXApiStatus().then((s) => setXTokenConfigured(s.tokenConfigured));
+  }, []);
+
+  useEffect(() => {
+    setRecentSignals(pipelineService.getRecentSignals());
+    refreshXApiStatus();
+  }, [refreshXApiStatus]);
+
+  useEffect(() => {
+    refreshXApiStatus();
+  }, [socialXHandle, refreshXApiStatus]);
+
+  const openLiveGraph = async (platform: SocialPlatform) => {
+    if (platform !== 'x' && platform !== 'reddit') return;
+    setLiveGraphPlatform(platform);
+    setLiveGraphOpen(true);
+    setLiveGraphLoading(true);
+    setLiveGraphData(null);
+    refreshXApiStatus();
+    try {
+      const data = await fetchLiveGraph(platform, socialXHandle, {
+        useDemoFallback: useDemoXCorpus,
+      });
+      setLiveGraphData(data);
+    } finally {
+      setLiveGraphLoading(false);
+    }
+  };
+
   // Register step update callback for real-time animation
   useEffect(() => {
     pipelineService.setStepUpdateCallback((signal) => {
@@ -213,6 +281,18 @@ const Pipeline: React.FC = () => {
     });
     return () => pipelineService.clearStepUpdateCallback();
   }, []);
+
+  useEffect(() => {
+    if (!activeSignal?.discoveredAssets?.length) return;
+    setAssetStrategyByKey((prev) => {
+      const next = { ...prev };
+      for (const asset of activeSignal.discoveredAssets) {
+        const k = assetKey(asset);
+        if (!next[k]) next[k] = 'momentum';
+      }
+      return next;
+    });
+  }, [activeSignal?.id, activeSignal?.discoveredAssets]);
 
   const handleConnectSocial = async (platform: SocialPlatform) => {
     if (platform === 'other') {
@@ -226,8 +306,7 @@ const Pipeline: React.FC = () => {
     } else {
       // Connect if not connected
       if (platform === 'x') {
-        // Backend token flow: mark connected without opening external account.
-        pipelineService.connectSocial(platform, xHandle);
+        pipelineService.connectSocial(platform, socialXHandle);
       } else if (platform === 'reddit') {
         // Backend/public ingestion flow for Reddit.
         pipelineService.connectSocial(platform, 'public_subreddits');
@@ -273,6 +352,26 @@ const Pipeline: React.FC = () => {
     setStats(pipelineService.getStats());
   };
 
+  const saveSignalFromPipeline = async (signal: PipelineSignal) => {
+    setIsSavingSignal(true);
+    setCreatedSignalId(null);
+    setSavedToBackend(false);
+    try {
+      const { id, savedToBackend: backend } = await pipelineService.persistPipelineSignal(signal, {
+        xHandle: socialXHandle,
+        xSourceCount: corpusMeta?.xSources,
+      });
+      setCreatedSignalId(id);
+      setSavedToBackend(backend);
+      setRecentSignals(pipelineService.getRecentSignals());
+      window.dispatchEvent(new Event('signalCreated'));
+    } catch (e) {
+      console.error('Failed to persist signal:', e);
+    } finally {
+      setIsSavingSignal(false);
+    }
+  };
+
   const handleProcessSignal = async () => {
     if (!useManualInput) {
       await runTradingPrompt(false);
@@ -296,7 +395,8 @@ const Pipeline: React.FC = () => {
     }
     
     try {
-      const result = await pipelineService.processSignal(chosenSource, input);
+      const webOpts = await resolveWebCorroboration(input);
+      const result = await pipelineService.processSignal(chosenSource, input, 'gpt-4o', webOpts);
       setRecentSignals(pipelineService.getRecentSignals());
       setStats(pipelineService.getStats());
       setActiveSignal(result);
@@ -310,7 +410,7 @@ const Pipeline: React.FC = () => {
         setStreamingText(prev => prev + hypothesis.slice(i, i + batchSize));
       }
       setIsStreaming(false);
-
+      await saveSignalFromPipeline(result);
       setSignalInput('');
     } catch (err) {
       console.error('Pipeline error:', err);
@@ -332,56 +432,54 @@ const Pipeline: React.FC = () => {
     ));
   };
 
-  const toggleAssetSelection = (asset: DiscoveredAsset) => {
-    const key = assetKey(asset);
-    setSelectedAssetKeys((prev) => (
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-    ));
-  };
-
   const buildCorpusPreview = async (): Promise<{ chosenSource: SocialPlatform; analysisInput: string } | null> => {
     setIsBuildingCorpus(true);
+    setCorpusError(null);
     try {
       const parts: string[] = [];
       let chosenSource: SocialPlatform = 'x';
       let xSources = 0;
       let redditSources = 0;
+      let xMode: 'live' | 'demo' | '' = '';
 
-      // Always try the static X corpus pointer first; never let network errors crash the pipeline.
-      try {
-        const staticXResp = await fetch(staticXCorpusUrl);
-        if (staticXResp.ok) {
-          const staticXData = await staticXResp.json();
-          if (typeof staticXData?.corpus === 'string' && staticXData.corpus.trim().length > 0) {
-            xSources = Number(staticXData.sourceCount || 0);
-            parts.push(`[X @${xHandle} | ${xSources} sources | static pointer]\n${staticXData.corpus}`);
+      const useXThisRun = socialConnections.some(
+        (s) => s.isConnected && runSources.includes(s.platform) && s.platform === 'x'
+      );
+
+      if (useXThisRun) {
+        if (useDemoXCorpus) {
+          xSources = DEMO_X_CORPUS.sourceCount;
+          xMode = 'demo';
+          parts.push(
+            `[X ${DEMO_X_CORPUS_LABEL} | ${xSources} sources | demo · ${DEMO_X_CORPUS.asOfDate}]\n${DEMO_X_CORPUS.corpus}`
+          );
+        } else {
+          const liveHandle = socialXHandle.trim() || 'crypto';
+          const xCorpus = await signalService.getXGraphCorpus(liveHandle);
+          if (xCorpus && isLiveSocialCorpus(xCorpus)) {
+            xSources = xCorpus.sourceCount;
+            xMode = 'live';
+            parts.push(`[X @${liveHandle} | ${xSources} sources | live]\n${xCorpus.corpus}`);
+          } else {
+            throw new Error(
+              xCorpus?.message ||
+                'No live X corpus. Set X_BEARER_TOKEN in backend/.env or turn on general demo corpus.'
+            );
           }
         }
-      } catch {
-        // Ignore and fallback to service endpoint below
-      }
-
-      if (!parts.length) {
-        const xCorpus = await signalService.getXGraphCorpus(xHandle);
-        if (xCorpus?.corpus) {
-          xSources = xCorpus.sourceCount;
-          parts.push(`[X @${xHandle} | ${xSources} sources]\n${xCorpus.corpus}`);
-        }
-      }
-
-      // Final reliability fallback for demos: use embedded X corpus when network/data is unavailable.
-      if (!parts.length) {
-        xSources = DEMO_X_CORPUS.sourceCount;
-        parts.push(`[X @${xHandle} | ${xSources} sources]\n${DEMO_X_CORPUS.corpus}`);
       }
 
       // Optional augment: if Reddit is selected for this run, merge it.
       if (socialConnections.some((s) => s.isConnected && runSources.includes(s.platform) && s.platform === 'reddit')) {
         const redditCorpus = await signalService.getRedditPublicCorpus();
-        if (redditCorpus?.corpus) {
+        if (redditCorpus && isLiveSocialCorpus(redditCorpus)) {
           redditSources = redditCorpus.sourceCount;
           parts.push(`[Reddit public | ${redditCorpus.sourceCount} subreddits]\n${redditCorpus.corpus}`);
         }
+      }
+
+      if (!parts.length) {
+        throw new Error('Select at least one connected social source for this run.');
       }
 
       const compiledCorpus = parts.join('\n\n---\n\n');
@@ -389,7 +487,15 @@ const Pipeline: React.FC = () => {
       const preview = `Filtered ${normalized.selectedLines.length}/${normalized.totalCount} tradable lines\n\n${normalized.normalizedCorpus}`;
       setCorpusPreview(preview.slice(0, 1800));
       setCorpusBuilt(true);
-      const sourceLabel = xSources > 0 && redditSources > 0 ? 'X + Reddit live' : xSources > 0 ? 'X live' : redditSources > 0 ? 'Reddit live' : 'fallback context';
+      const xLabel = xMode === 'demo' ? 'X demo' : xMode === 'live' ? 'X live' : '';
+      const sourceLabel =
+        xSources > 0 && redditSources > 0
+          ? `${xLabel} + Reddit live`
+          : xSources > 0
+          ? xLabel
+          : redditSources > 0
+          ? 'Reddit live'
+          : 'social';
       setCorpusMeta({
         sourceLabel,
         lineCount: normalized.selectedLines.length,
@@ -408,11 +514,42 @@ const Pipeline: React.FC = () => {
 
       return { chosenSource, analysisInput };
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to build social corpus';
       console.error('Failed to build corpus preview:', error);
-      setCorpusMeta({ sourceLabel: 'fallback context', lineCount: 0, xSources: 0, redditSources: 0 });
+      setCorpusError(msg);
+      setCorpusMeta({ sourceLabel: 'live X required', lineCount: 0, xSources: 0, redditSources: 0 });
       return null;
     } finally {
       setIsBuildingCorpus(false);
+    }
+  };
+
+  const resolveWebCorroboration = async (corpusText: string) => {
+    setIsCorroboratingWeb(true);
+    try {
+      const resp = await corroborateCorpus(corpusText);
+      if (!resp?.enabled && !resp?.evidence?.length && !resp?.discovered_assets?.length) {
+        setLastWebEvidence([]);
+        return undefined;
+      }
+      setLastWebEvidence(resp.evidence || []);
+      return {
+        webCorroborationBlock: resp.corroboration_block,
+        webEvidence: resp.evidence,
+        webDiscoveredAssets: resp.discovered_assets,
+        webCorroborationMeta: {
+          tickers: resp.tickers,
+          nimbleCallsUsed: resp.nimble_calls_used,
+          cacheHits: resp.cache_hits,
+          webDiscoveredCount: resp.discovered_assets?.length ?? 0,
+        },
+      };
+    } catch (err) {
+      console.warn('Web corroboration skipped:', err);
+      setLastWebEvidence([]);
+      return undefined;
+    } finally {
+      setIsCorroboratingWeb(false);
     }
   };
 
@@ -430,11 +567,13 @@ const Pipeline: React.FC = () => {
     setIsProcessing(true);
     setIsStreaming(true);
     setActiveSignal(null);
+    setCreatedSignalId(null);
+    setSavedToBackend(false);
     setStreamingText('');
-    setSelectedAssetKeys([]);
 
     try {
-      const result = await pipelineService.processSignal(chosenSource, analysisInput);
+      const webOpts = await resolveWebCorroboration(analysisInput);
+      const result = await pipelineService.processSignal(chosenSource, analysisInput, 'gpt-4o', webOpts);
       setRecentSignals(pipelineService.getRecentSignals());
       setStats(pipelineService.getStats());
       setActiveSignal(result);
@@ -446,8 +585,7 @@ const Pipeline: React.FC = () => {
         setStreamingText(prev => prev + hypothesis.slice(i, i + batchSize));
       }
       setIsStreaming(false);
-
-      setSelectedAssetKeys(result.discoveredAssets.slice(0, 2).map(assetKey));
+      await saveSignalFromPipeline(result);
 
     } catch (err) {
       console.error('Failed to run trading prompt:', err);
@@ -459,22 +597,7 @@ const Pipeline: React.FC = () => {
 
   const handleCreateSignal = async () => {
     if (!activeSignal) return;
-    const created = pipelineService.createSignalFromPipeline(activeSignal);
-    setCreatedSignalId(created.id);
-
-    setShowCreateDialog(true);
-  };
-
-  const handleGenerateStrategy = () => {
-    if (!activeSignal) return;
-    const selectedAssets = activeSignal.discoveredAssets.filter((asset) => selectedAssetKeys.includes(assetKey(asset)));
-    const strategyAssets = selectedAssets.length ? selectedAssets : activeSignal.discoveredAssets;
-    const generated = pipelineService.generateStrategiesFromAssets(activeSignal.hypothesis, strategyAssets);
-    setActiveSignal({
-      ...activeSignal,
-      strategies: generated,
-      status: 'strategy_generated',
-    });
+    await saveSignalFromPipeline(activeSignal);
   };
 
   // Group platforms by category for directory
@@ -580,8 +703,10 @@ const Pipeline: React.FC = () => {
   // ─── Asset Result Card (matches Create Signal style) ───
   const AssetResultCard = ({ asset, index }: { asset: DiscoveredAsset; index: number }) => {
     const color = categoryColors[asset.assetClass] || '#6366f1';
-    const strategyForAsset = activeSignal?.strategies?.find((s) => s.assetSymbol === asset.symbol);
-    const isSelected = selectedAssetKeys.includes(assetKey(asset));
+    const key = assetKey(asset);
+    const strategyId = assetStrategyByKey[key] ?? 'momentum';
+    const executionStrategy = getDefaultStrategy(strategyId);
+    const tradeUrl = asset.platformUrl || '#';
     return (
       <motion.div
         initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -632,10 +757,44 @@ const Pipeline: React.FC = () => {
                 </Stack>
                 <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.68rem' }}>
                   {asset.name} · {asset.assetClass}
+                  {asset.livePrice != null && (
+                    <>
+                      {' · '}
+                      <Box component="span" sx={{ fontWeight: 700, color: theme.palette.text.primary }}>
+                        {formatUsdPrice(asset.livePrice)}
+                      </Box>
+                      {asset.change24hPercent != null && (
+                        <Box
+                          component="span"
+                          sx={{
+                            ml: 0.5,
+                            fontWeight: 700,
+                            color: asset.change24hPercent >= 0 ? '#10b981' : '#ef4444',
+                          }}
+                        >
+                          {asset.change24hPercent >= 0 ? '+' : ''}
+                          {asset.change24hPercent.toFixed(2)}%
+                        </Box>
+                      )}
+                    </>
+                  )}
                 </Typography>
               </Box>
             </Stack>
             <Stack direction="row" alignItems="center" spacing={0.5}>
+              {asset.marketSource && (
+                <Chip
+                  label="LIVE"
+                  size="small"
+                  sx={{
+                    height: 18,
+                    fontSize: '0.55rem',
+                    fontWeight: 800,
+                    background: '#06b6d415',
+                    color: '#06b6d4',
+                  }}
+                />
+              )}
               <Chip
                 label={`${asset.confidence}%`}
                 size="small"
@@ -645,58 +804,71 @@ const Pipeline: React.FC = () => {
                   color: asset.confidence > 80 ? '#10b981' : '#f59e0b',
                 }}
               />
-              <Button
-                size="small"
-                onClick={() => toggleAssetSelection(asset)}
-                sx={{
-                  minWidth: 'auto', px: 1.2, py: 0.4, borderRadius: '8px',
-                  fontSize: '0.62rem', fontWeight: 700, textTransform: 'none',
-                  color: isSelected ? '#10b981' : theme.palette.text.secondary,
-                  background: isSelected ? '#10b98115' : (isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'),
-                  border: `1px solid ${isSelected ? '#10b98140' : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)')}`,
-                }}
-              >
-                {isSelected ? 'Selected' : 'Select'}
-              </Button>
-              <Tooltip title={`Trade on ${asset.platformName || asset.platform} (Pre-flight: privacy → register → route)`} arrow>
-                <Button
-                  size="small"
-                  disabled={!strategyForAsset || !isSelected}
-                  onClick={() => {
-                    if (activeSignal) {
-                      executeWithPreFlight({
-                        hypothesis: activeSignal.hypothesis,
-                        quality: activeSignal.confidence,
-                        sentiment: activeSignal.sentiment || 'neutral',
-                        assetCount: activeSignal.discoveredAssets.length,
-                        source: 'pipeline',
-                        timestamp: activeSignal.timestamp,
-                        targetPlatform: asset.platformName || asset.platform,
-                        targetUrl: asset.platformUrl,
-                      }).catch(console.error);
-                    } else {
-                      window.open(asset.platformUrl, '_blank');
-                    }
-                  }}
-                  sx={{
-                    minWidth: 'auto', px: 1.5, py: 0.5, borderRadius: '8px',
-                    fontSize: '0.68rem', fontWeight: 700, textTransform: 'none',
-                    color: color,
-                    background: `${color}08`,
-                    border: `1px solid ${color}20`,
-                    '&:hover': { background: `${color}15` },
-                    '&.Mui-disabled': {
-                      color: theme.palette.text.disabled,
-                      borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-                    },
-                  }}
-                  endIcon={<OpenInNewIcon sx={{ fontSize: '12px !important' }} />}
-                >
-                  {!isSelected ? 'Select Asset' : strategyForAsset ? (asset.platformName || asset.platform) : 'Generate Strategy'}
-                </Button>
-              </Tooltip>
             </Stack>
           </Stack>
+
+          <Typography variant="overline" sx={{ fontWeight: 800, color: '#6366f1', fontSize: '0.6rem', mt: 1.5, display: 'block' }}>
+            EXECUTION STRATEGY
+          </Typography>
+          <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
+            {DEFAULT_EXECUTION_STRATEGIES.map((s) => {
+              const active = strategyId === s.id;
+              return (
+                <Chip
+                  key={s.id}
+                  label={s.name}
+                  size="small"
+                  onClick={() => setAssetStrategyByKey((prev) => ({ ...prev, [key]: s.id }))}
+                  sx={{
+                    height: 24,
+                    fontSize: '0.62rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: active ? `${color}22` : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                    color: active ? color : theme.palette.text.secondary,
+                    border: `1px solid ${active ? color : isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
+                  }}
+                />
+              );
+            })}
+          </Stack>
+          <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.65rem', display: 'block', mb: 0.5 }}>
+            {executionStrategy.tagline} · {executionStrategy.timeHorizon}
+          </Typography>
+          <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.62rem', display: 'block', lineHeight: 1.35 }}>
+            <Box component="span" sx={{ fontWeight: 700, color: '#10b981' }}>Entry: </Box>
+            {executionStrategy.entry}
+          </Typography>
+          <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.62rem', display: 'block', lineHeight: 1.35, mt: 0.4 }}>
+            <Box component="span" sx={{ fontWeight: 700, color: '#f59e0b' }}>Exit: </Box>
+            {executionStrategy.exit}
+          </Typography>
+          <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.62rem', display: 'block', lineHeight: 1.35, mt: 0.4, mb: 1 }}>
+            <Box component="span" sx={{ fontWeight: 700, color: '#ef4444' }}>Risk: </Box>
+            {executionStrategy.risk}
+          </Typography>
+
+          <Button
+            fullWidth
+            size="small"
+            variant="contained"
+            onClick={() => window.open(tradeUrl, '_blank', 'noopener,noreferrer')}
+            endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
+            sx={{
+              mt: 0.5,
+              py: 0.9,
+              borderRadius: '10px',
+              fontWeight: 700,
+              fontSize: '0.75rem',
+              textTransform: 'none',
+              background: `linear-gradient(135deg, ${color} 0%, ${color}cc 100%)`,
+              boxShadow: `0 4px 16px ${color}30`,
+              '&:hover': { filter: 'brightness(1.08)' },
+            }}
+          >
+            Trade on {asset.platformName || asset.platform}
+          </Button>
+
           {asset.reasoning && (
             <Typography variant="caption" sx={{ color: theme.palette.text.secondary, mt: 1, display: 'block', fontSize: '0.66rem', lineHeight: 1.4 }}>
               {asset.reasoning}
@@ -761,7 +933,10 @@ const Pipeline: React.FC = () => {
                 Greed Signal Pipeline
               </Typography>
             </Stack>
-            <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
+            <Typography variant="body1" sx={{ color: theme.palette.text.secondary, maxWidth: 640, mx: 'auto', mt: 1, fontSize: '0.95rem', lineHeight: 1.5 }}>
+              Social graph in → web-verified thesis → cross-asset discovery → trade routes. Built for traders who think in narratives first.
+            </Typography>
+            <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" sx={{ gap: 0.5, mt: 2 }}>
               {[
                 { icon: <FlashIcon sx={{ fontSize: 14 }} />, label: `${stats.totalSignalsProcessed} Signals`, color: '#6366f1' },
                 { icon: <SocialIcon sx={{ fontSize: 14 }} />, label: `${stats.socialPlatformsConnected} Socials`, color: '#3b82f6' },
@@ -785,6 +960,14 @@ const Pipeline: React.FC = () => {
             </Stack>
           </Box>
         </motion.div>
+
+        <PipelineFlowStepper
+          activeStep={flowStep}
+          isDark={isDark}
+          socialsConnected={socialsConnected}
+        />
+
+        <PipelineHowItWorks isDark={isDark} />
 
         {/* ── 3-Column Pipeline ── */}
         <Grid container spacing={3} alignItems="stretch">
@@ -815,7 +998,9 @@ const Pipeline: React.FC = () => {
                     SOCIAL CONNECTIONS
                   </Typography>
                   <Stack spacing={1} sx={{ mb: 3 }}>
-                    {socialConnections.map((social) => {
+                    {socialConnections
+                      .filter((social) => showAdvancedSources || social.platform === 'x' || social.platform === 'reddit')
+                      .map((social) => {
                       const accent = socialAccentColor(social.platform, social.color);
                       return (
                       <Paper
@@ -854,19 +1039,98 @@ const Pipeline: React.FC = () => {
                             )}
                           </Box>
                         </Stack>
-                        {social.isConnected ? (
-                          <CheckIcon sx={{ color: '#10b981', fontSize: 18 }} />
-                        ) : (
-                          <Chip label="Connect" size="small" sx={{
-                            fontSize: '0.65rem', height: 24, fontWeight: 700,
-                            background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
-                            border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
-                          }} />
-                        )}
+                        <Stack direction="row" alignItems="center" spacing={0.5}>
+                          {(social.platform === 'x' || social.platform === 'reddit') && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void openLiveGraph(social.platform);
+                              }}
+                              sx={{
+                                textTransform: 'none',
+                                fontSize: '0.62rem',
+                                fontWeight: 700,
+                                py: 0.25,
+                                px: 1,
+                                minWidth: 0,
+                                borderRadius: '8px',
+                                borderColor: accent,
+                                color: accent,
+                              }}
+                            >
+                              Live graph
+                            </Button>
+                          )}
+                          {social.isConnected ? (
+                            <CheckIcon sx={{ color: '#10b981', fontSize: 18 }} />
+                          ) : (
+                            <Chip label="Connect" size="small" sx={{
+                              fontSize: '0.65rem', height: 24, fontWeight: 700,
+                              background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                              border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+                            }} />
+                          )}
+                        </Stack>
                       </Paper>
                     )})}
                   </Stack>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    label="X handle (live only)"
+                    value={socialXHandle}
+                    onChange={(e) => setSocialXHandle(e.target.value.replace(/^@/, '').trim())}
+                    placeholder="optional — demo uses general feed"
+                    helperText={
+                      useDemoXCorpus
+                        ? `General demo corpus (BTC, ETH, BNB, CRCL · ${DEMO_X_CORPUS.asOfDate}). Turn off demo to use live @${socialXHandle || 'handle'}.`
+                        : xTokenConfigured
+                        ? `Live graph for @${socialXHandle || 'crypto'} — up to 5 posts per refresh.`
+                        : 'Set X_BEARER_TOKEN in backend/.env or turn demo corpus back on.'
+                    }
+                    sx={{
+                      mb: 1,
+                      '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: '0.82rem' },
+                      '& .MuiFormHelperText-root': { fontSize: '0.65rem' },
+                    }}
+                  />
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 1.2,
+                      mb: 2,
+                      borderRadius: '10px',
+                      background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
+                      border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" justifyContent="space-between">
+                      <Box>
+                        <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.72rem', display: 'block' }}>
+                          General demo corpus
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
+                          On by default — Binance/BTC/ETH/CRCL feed, not your X account
+                        </Typography>
+                      </Box>
+                      <Switch
+                        size="small"
+                        checked={useDemoXCorpus}
+                        onChange={(e) => setUseDemoXCorpus(e.target.checked)}
+                      />
+                    </Stack>
+                  </Paper>
+                  <Button
+                    size="small"
+                    onClick={() => setShowAdvancedSources((v) => !v)}
+                    sx={{ mb: 2, textTransform: 'none', fontSize: '0.72rem', fontWeight: 700, color: '#6366f1' }}
+                  >
+                    {showAdvancedSources ? 'Show fewer sources' : 'More social sources & AI settings'}
+                  </Button>
 
+                  <Collapse in={showAdvancedSources}>
                   {/* AI Models */}
                   <Typography variant="overline" sx={{ fontWeight: 800, color: '#10b981', mb: 1.5, display: 'block', letterSpacing: '0.1em', fontSize: '0.68rem' }}>
                     AI MODELS
@@ -912,6 +1176,7 @@ const Pipeline: React.FC = () => {
                       </Paper>
                     ))}
                   </Stack>
+                  </Collapse>
                 </>,
                 '#6366f1'
               )}
@@ -1039,13 +1304,36 @@ const Pipeline: React.FC = () => {
                       />
                     )}
                   </Paper>
+                  {corpusPreview && corpusMeta && (
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 1.5, mb: 2, borderRadius: '12px', maxHeight: 140, overflow: 'auto',
+                        background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+                        border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 800, color: '#06b6d4', fontSize: '0.62rem', display: 'block', mb: 0.5 }}>
+                        SOCIAL CORPUS PREVIEW · {corpusMeta.sourceLabel}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem', whiteSpace: 'pre-wrap', lineHeight: 1.35 }}>
+                        {corpusPreview}
+                      </Typography>
+                    </Paper>
+                  )}
+
+                  {corpusError && (
+                    <Alert severity="warning" sx={{ mb: 1.5, borderRadius: '10px', fontSize: '0.78rem' }}>
+                      {corpusError}
+                    </Alert>
+                  )}
                   <Stack spacing={1.5}>
                     <Button
                       variant="contained"
                       fullWidth
                       onClick={handleProcessSignal}
-                      disabled={isProcessing || (useManualInput ? !signalInput.trim() : socialConnections.filter((s) => s.isConnected && runSources.includes(s.platform)).length === 0)}
-                      startIcon={isProcessing ? <CircularProgress size={18} color="inherit" /> : <SendIcon />}
+                      disabled={isProcessing || isCorroboratingWeb || (useManualInput ? !signalInput.trim() : socialConnections.filter((s) => s.isConnected && runSources.includes(s.platform)).length === 0)}
+                      startIcon={(isProcessing || isCorroboratingWeb) ? <CircularProgress size={18} color="inherit" /> : <SendIcon />}
                       sx={{
                         background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                         color: '#fff',
@@ -1055,7 +1343,13 @@ const Pipeline: React.FC = () => {
                         '&:hover': { boxShadow: '0 12px 32px rgba(16,185,129,0.35)' },
                       }}
                     >
-                      {isProcessing ? 'Running Pipeline...' : useManualInput ? 'Run Through Pipeline (Manual)' : 'Run Through Pipeline'}
+                      {isCorroboratingWeb
+                        ? 'Verifying on web…'
+                        : isProcessing
+                        ? 'Agents working…'
+                        : useManualInput
+                        ? 'Generate Signal (manual)'
+                        : 'Generate Signal'}
                     </Button>
                   </Stack>
 
@@ -1072,135 +1366,30 @@ const Pipeline: React.FC = () => {
                     )}
                   </AnimatePresence>
 
-                  {/* Streaming Hypothesis Output */}
-                  <AnimatePresence>
-                    {(isStreaming || (activeSignal && !isProcessing)) && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ type: 'spring', stiffness: 200 }}
-                      >
-                        <Box sx={{ mt: 3 }}>
-                          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-                            <Typography variant="overline" sx={{ fontWeight: 800, color: '#10b981', letterSpacing: '0.1em', fontSize: '0.68rem' }}>
-                              PIPELINE OUTPUT
-                            </Typography>
-                            {activeSignal?.sentiment && (
-                              <Chip
-                                label={activeSignal.sentiment.toUpperCase()}
-                                size="small"
-                                sx={{
-                                  height: 20, fontSize: '0.6rem', fontWeight: 800,
-                                  background: activeSignal.sentiment === 'bullish' ? '#10b98120' : activeSignal.sentiment === 'bearish' ? '#ef444420' : '#f59e0b20',
-                                  color: activeSignal.sentiment === 'bullish' ? '#10b981' : activeSignal.sentiment === 'bearish' ? '#ef4444' : '#f59e0b',
-                                }}
-                              />
-                            )}
-                            {activeSignal?.confidence && (
-                              <Chip
-                                label={`${activeSignal.confidence}% confidence`}
-                                size="small"
-                                sx={{
-                                  height: 20, fontSize: '0.6rem', fontWeight: 800,
-                                  background: '#6366f115', color: '#6366f1',
-                                }}
-                              />
-                            )}
-                            {activeSignal?.llmExecution && (
-                              <Chip
-                                label={activeSignal.llmExecution === 'llm' ? 'LLM Used' : 'Fallback Used'}
-                                size="small"
-                                sx={{
-                                  height: 20,
-                                  fontSize: '0.58rem',
-                                  fontWeight: 800,
-                                  background: activeSignal.llmExecution === 'llm' ? '#10b98115' : '#ef444415',
-                                  color: activeSignal.llmExecution === 'llm' ? '#10b981' : '#ef4444',
-                                  border: `1px solid ${activeSignal.llmExecution === 'llm' ? '#10b98130' : '#ef444430'}`,
-                                }}
-                              />
-                            )}
-                            {corpusMeta && (
-                              <Chip
-                                label={`📡 ${corpusMeta.sourceLabel} · ${corpusMeta.lineCount} lines`}
-                                size="small"
-                                sx={{
-                                  height: 20, fontSize: '0.58rem', fontWeight: 800,
-                                  background: '#06b6d415', color: '#06b6d4',
-                                  border: '1px solid #06b6d420',
-                                }}
-                              />
-                            )}
-                            {txState.privacyEnabled && (
-                              <Chip
-                                label="🛡️"
-                                size="small"
-                                sx={{
-                                  height: 20, fontSize: '0.6rem', fontWeight: 800,
-                                  background: '#8b5cf615', color: '#8b5cf6',
-                                  border: '1px solid #8b5cf620',
-                                  minWidth: 0, px: 0.5,
-                                }}
-                              />
-                            )}
-                          </Stack>
-
-                          {/* Hypothesis with streaming effect */}
-                          <Paper
-                            elevation={0}
-                            sx={{
-                              p: 2, borderRadius: '14px', mb: 2,
-                              background: isDark ? 'rgba(16,185,129,0.04)' : 'rgba(16,185,129,0.03)',
-                              border: '1px solid rgba(16,185,129,0.15)',
-                            }}
-                          >
-                            <Typography variant="body2" sx={{
-                              fontWeight: 600, color: theme.palette.text.primary,
-                              fontSize: '0.82rem', lineHeight: 1.5,
-                            }}>
-                              {isStreaming ? streamingText : activeSignal?.hypothesis}
-                              {isStreaming && (
-                                <motion.span
-                                  animate={{ opacity: [1, 0] }}
-                                  transition={{ duration: 0.5, repeat: Infinity }}
-                                  style={{ display: 'inline-block', marginLeft: 2 }}
-                                >
-                                  ▊
-                                </motion.span>
-                              )}
-                            </Typography>
-                          </Paper>
-
-                          {/* AI Reasoning */}
-                          {activeSignal?.aiReasoning && !isStreaming && (
-                            <Paper
-                              elevation={0}
-                              sx={{
-                                p: 1.5, borderRadius: '10px', mb: 2,
-                                background: isDark ? 'rgba(99,102,241,0.04)' : 'rgba(99,102,241,0.03)',
-                                border: '1px solid rgba(99,102,241,0.1)',
-                              }}
-                            >
-                              <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 0.5 }}>
-                                <AIIcon sx={{ fontSize: 14, color: '#6366f1' }} />
-                                <Typography variant="caption" sx={{ fontWeight: 700, color: '#6366f1', fontSize: '0.65rem' }}>
-                                  AI REASONING
-                                </Typography>
-                              </Stack>
-                              <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.7rem', lineHeight: 1.4 }}>
-                                {activeSignal.aiReasoning}
-                              </Typography>
-                            </Paper>
-                          )}
-
-                          {/* Pipeline flow indicator */}
-                          {!isStreaming && activeSignal?.pipelineSteps && (
-                            <PipelineStepProgress steps={activeSignal.pipelineSteps} />
-                          )}
-                        </Box>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {isStreaming && (
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        mt: 2, p: 1.5, borderRadius: '12px',
+                        background: isDark ? 'rgba(16,185,129,0.04)' : 'rgba(16,185,129,0.03)',
+                        border: '1px solid rgba(16,185,129,0.15)',
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#10b981', fontSize: '0.65rem', display: 'block', mb: 0.5 }}>
+                        Generating…
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontSize: '0.78rem', lineHeight: 1.4 }}>
+                        {streamingText}
+                        <motion.span
+                          animate={{ opacity: [1, 0] }}
+                          transition={{ duration: 0.5, repeat: Infinity }}
+                          style={{ display: 'inline-block', marginLeft: 2 }}
+                        >
+                          ▊
+                        </motion.span>
+                      </Typography>
+                    </Paper>
+                  )}
 
                   {/* Pipeline flow */}
                   {!activeSignal && !isProcessing && (
@@ -1260,121 +1449,31 @@ const Pipeline: React.FC = () => {
                         <Typography variant="overline" sx={{ fontWeight: 800, color: '#f59e0b', mb: 1.5, display: 'block', letterSpacing: '0.1em', fontSize: '0.68rem' }}>
                           DISCOVERED ASSETS ({activeSignal.discoveredAssets.length})
                         </Typography>
-                        <Stack direction="row" spacing={0.7} sx={{ mb: 1.2 }}>
-                          <Chip
-                            size="small"
-                            label={`${selectedAssetKeys.length} selected`}
-                            sx={{
-                              height: 20, fontSize: '0.6rem', fontWeight: 800,
-                              background: '#10b98115', color: '#10b981',
-                            }}
-                          />
-                          <Chip
-                            size="small"
-                            label="Select targets → Build strategy → Route to exchange"
-                            sx={{
-                              height: 20, fontSize: '0.58rem', fontWeight: 700,
-                              background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
-                              color: theme.palette.text.secondary,
-                            }}
-                          />
-                        </Stack>
+                        <Chip
+                          size="small"
+                          label="Pick a strategy per asset → Trade on your exchange"
+                          sx={{
+                            mb: 1.2,
+                            height: 22,
+                            fontSize: '0.62rem',
+                            fontWeight: 700,
+                            background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                            color: theme.palette.text.secondary,
+                          }}
+                        />
                         <Stack spacing={1} sx={{ mb: 2 }}>
                           {activeSignal.discoveredAssets.map((asset, idx) => (
                             <AssetResultCard key={`${asset.symbol}-${asset.platform}-${idx}`} asset={asset} index={idx} />
                           ))}
                         </Stack>
 
-                        {/* ALPHA STRATEGY (between discovery and execution) */}
-                        <Paper
-                          elevation={0}
-                          sx={{
-                            p: 1.5,
-                            mb: 2,
-                            borderRadius: '12px',
-                            background: isDark ? 'rgba(99,102,241,0.05)' : 'rgba(99,102,241,0.03)',
-                            border: '1px solid rgba(99,102,241,0.18)',
-                          }}
-                        >
-                          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-                            <Typography variant="overline" sx={{ fontWeight: 800, color: '#6366f1', letterSpacing: '0.08em', fontSize: '0.62rem' }}>
-                              ALPHA STRATEGY
-                            </Typography>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={handleGenerateStrategy}
-                              sx={{
-                                textTransform: 'none',
-                                fontSize: '0.66rem',
-                                fontWeight: 700,
-                                borderRadius: '8px',
-                                borderColor: '#6366f1',
-                                color: '#6366f1',
-                              }}
-                            >
-                              {activeSignal.strategies?.length ? 'Regenerate Alpha' : 'Generate Alpha'}
-                            </Button>
-                          </Stack>
-                          {activeSignal.strategies?.length ? (
-                            <Stack spacing={0.8}>
-                              {activeSignal.strategies.slice(0, 3).map((strategy: AssetStrategy, idx: number) => (
-                                <Paper
-                                  key={`${strategy.assetSymbol}-${idx}`}
-                                  elevation={0}
-                                  sx={{
-                                    p: 1,
-                                    borderRadius: '10px',
-                                    background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
-                                    border: `1px solid ${isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'}`,
-                                  }}
-                                >
-                                  <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                    <Typography variant="caption" sx={{ fontWeight: 800, color: theme.palette.text.primary, fontSize: '0.68rem' }}>
-                                      {strategy.assetSymbol} · {strategy.action.toUpperCase()}
-                                    </Typography>
-                                    <Typography variant="caption" sx={{ color: '#6366f1', fontSize: '0.64rem', fontWeight: 700 }}>
-                                      {strategy.timeHorizon}
-                                    </Typography>
-                                  </Stack>
-                                  <Typography variant="caption" sx={{ color: '#10b981', fontSize: '0.6rem', fontWeight: 800, display: 'block', mt: 0.4 }}>
-                                    ENTRY / LIMIT PLAN
-                                  </Typography>
-                                  <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.62rem', display: 'block', lineHeight: 1.35 }}>
-                                    {strategy.entry}
-                                  </Typography>
-                                  <Typography variant="caption" sx={{ color: '#f59e0b', fontSize: '0.6rem', fontWeight: 800, display: 'block', mt: 0.6 }}>
-                                    TAKE PROFIT / EXIT
-                                  </Typography>
-                                  <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.62rem', display: 'block', lineHeight: 1.35 }}>
-                                    {strategy.exit}
-                                  </Typography>
-                                  <Typography variant="caption" sx={{ color: '#ef4444', fontSize: '0.6rem', fontWeight: 800, display: 'block', mt: 0.6 }}>
-                                    RISK / EXPOSURE / TECHNICALS
-                                  </Typography>
-                                  <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.62rem', display: 'block', lineHeight: 1.35 }}>
-                                    {strategy.risk}
-                                  </Typography>
-                                  <Typography variant="caption" sx={{ color: '#6366f1', fontSize: '0.6rem', fontWeight: 700, display: 'block', mt: 0.6 }}>
-                                    Route via {strategy.platform}
-                                  </Typography>
-                                </Paper>
-                              ))}
-                            </Stack>
-                          ) : (
-                            <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.68rem' }}>
-                              Select target assets, then generate alpha strategy buildout for how to trade them.
-                            </Typography>
-                          )}
-                        </Paper>
-
-                        {/* CREATE SIGNAL BUTTON */}
+                        {/* Signal persisted (auto-saved after run) */}
                         <Button
                           variant="contained"
                           fullWidth
                           onClick={handleCreateSignal}
-                          startIcon={createdSignalId ? <CheckIcon /> : <AddCircleIcon />}
-                          disabled={!!createdSignalId}
+                          startIcon={isSavingSignal ? <CircularProgress size={16} color="inherit" /> : createdSignalId ? <CheckIcon /> : <AddCircleIcon />}
+                          disabled={isSavingSignal}
                           sx={{
                             mb: 2,
                             background: createdSignalId
@@ -1385,12 +1484,13 @@ const Pipeline: React.FC = () => {
                             boxShadow: createdSignalId
                               ? '0 8px 24px rgba(16,185,129,0.25)'
                               : '0 8px 24px rgba(99,102,241,0.25)',
-                            '&:hover': {
-                              boxShadow: '0 12px 32px rgba(99,102,241,0.35)',
-                            },
                           }}
                         >
-                          {createdSignalId ? 'Signal Created ✓' : '+ Create Signal from Pipeline'}
+                          {isSavingSignal
+                            ? 'Saving signal…'
+                            : createdSignalId
+                            ? `Signal saved${savedToBackend ? ' · live registry' : ' · portfolio'}`
+                            : 'Save signal again'}
                         </Button>
 
                         {createdSignalId && (
@@ -1411,7 +1511,7 @@ const Pipeline: React.FC = () => {
                             <Button
                               size="small"
                               variant="outlined"
-                              onClick={() => navigate('/pipeline')}
+                              onClick={() => navigate('/portfolio')}
                               startIcon={<ChartIcon sx={{ fontSize: 14 }} />}
                               sx={{
                                 flex: 1, textTransform: 'none', fontSize: '0.72rem', borderRadius: '10px', fontWeight: 700,
@@ -1577,6 +1677,27 @@ const Pipeline: React.FC = () => {
             </motion.div>
           </Grid>
         </Grid>
+
+        <AnimatePresence>
+          {activeSignal && !isProcessing && !isStreaming && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              style={{ marginTop: 24 }}
+            >
+              <PipelineSignalResult
+                signal={activeSignal}
+                isDark={isDark}
+                createdSignalId={createdSignalId}
+                savedToBackend={savedToBackend}
+                isSaving={isSavingSignal}
+                onSaveAgain={() => void handleCreateSignal()}
+                onPortfolio={() => navigate('/portfolio')}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── Recent Signals History ── */}
         {recentSignals.length > 0 && (
@@ -1924,112 +2045,18 @@ const Pipeline: React.FC = () => {
         </motion.div>
       </Container>
 
-      {/* ── Signal Created Dialog ── */}
-      <Dialog
-        open={showCreateDialog}
-        onClose={() => setShowCreateDialog(false)}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: '20px',
-            background: isDark
-              ? 'linear-gradient(145deg, rgba(15,23,42,0.98) 0%, rgba(30,41,59,0.95) 100%)'
-              : 'rgba(255,255,255,0.98)',
-            backdropFilter: 'blur(20px)',
-          },
+      <LiveGraphDrawer
+        open={liveGraphOpen}
+        onClose={() => setLiveGraphOpen(false)}
+        data={liveGraphData}
+        loading={liveGraphLoading}
+        isDark={isDark}
+        xHandle={socialXHandle}
+        onXHandleChange={setSocialXHandle}
+        onRefresh={() => {
+          if (liveGraphPlatform) void openLiveGraph(liveGraphPlatform);
         }}
-      >
-        <DialogTitle sx={{ textAlign: 'center', pt: 4 }}>
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', stiffness: 200 }}
-          >
-            <Avatar
-              sx={{
-                width: 80, height: 80, mx: 'auto', mb: 2,
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                boxShadow: '0 8px 32px rgba(16,185,129,0.4)',
-              }}
-            >
-              <CheckIcon sx={{ fontSize: 40, color: '#fff' }} />
-            </Avatar>
-          </motion.div>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: theme.palette.text.primary }}>
-            🎉 Signal Created!
-          </Typography>
-          <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mt: 1 }}>
-            Your pipeline signal has been added to Portfolio and Markets
-          </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ textAlign: 'center' }}>
-          {activeSignal && (
-            <Box>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 2, borderRadius: '14px', mb: 2,
-                  background: isDark ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.04)',
-                  border: '1px solid rgba(99,102,241,0.15)',
-                }}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.text.primary, fontSize: '0.82rem', lineHeight: 1.5 }}>
-                  {activeSignal.hypothesis.slice(0, 150)}...
-                </Typography>
-              </Paper>
-              <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
-                {activeSignal.discoveredAssets.slice(0, 5).map((a, i) => (
-                  <Chip
-                    key={i}
-                    label={`${a.symbol} · ${a.platformName || a.platform}`}
-                    size="small"
-                    sx={{
-                      fontSize: '0.68rem', fontWeight: 700,
-                      background: `${categoryColors[a.assetClass] || '#6366f1'}10`,
-                      color: categoryColors[a.assetClass] || '#6366f1',
-                    }}
-                  />
-                ))}
-              </Stack>
-
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 3, justifyContent: 'center' }}>
-          <Button
-            variant="contained"
-            onClick={() => { setShowCreateDialog(false); navigate('/portfolio'); }}
-            startIcon={<WalletIcon />}
-            sx={{
-              px: 3, py: 1.2, borderRadius: '12px', fontWeight: 700, textTransform: 'none',
-              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-              '&:hover': { boxShadow: '0 8px 24px rgba(99,102,241,0.3)' },
-            }}
-          >
-            View in Portfolio
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() => { setShowCreateDialog(false); navigate('/pipeline'); }}
-            startIcon={<ChartIcon />}
-            sx={{
-              px: 3, py: 1.2, borderRadius: '12px', fontWeight: 700, textTransform: 'none',
-              borderColor: '#10b981', color: '#10b981',
-              '&:hover': { background: '#10b98108' },
-            }}
-          >
-            View in Markets
-          </Button>
-          <Button
-            variant="text"
-            onClick={() => setShowCreateDialog(false)}
-            sx={{ px: 3, py: 1.2, borderRadius: '12px', fontWeight: 600, textTransform: 'none' }}
-          >
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+      />
 
       {/* ── Others / Manual Source Dialog ── */}
       <Dialog
