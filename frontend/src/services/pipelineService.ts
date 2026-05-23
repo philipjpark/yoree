@@ -97,6 +97,7 @@ export interface PipelineSignal {
   aiReasoning?: string;
   strategies?: AssetStrategy[];
   pipelineSteps?: PipelineStep[];
+  llmExecution?: 'llm' | 'fallback';
 }
 
 export interface PipelineStep {
@@ -446,7 +447,7 @@ const ASSET_ROUTING: Record<string, { assets: string[]; platforms: BrokerageId[]
     },
   },
   stocks: {
-    assets: ['AAPL', 'TSLA', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'XOM', 'CVX'],
+    assets: ['AAPL', 'TSLA', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'XOM', 'CVX', 'AVAV', 'KTOS', 'JOBY', 'EH'],
     platforms: ['robinhood', 'alpaca', 'webull', 'interactive-brokers'],
     platformUrls: {
       robinhood: 'https://robinhood.com/stocks',
@@ -507,7 +508,7 @@ class PipelineService {
     this.aiModels = [...DEFAULT_AI_MODELS];
     this.brokerages = [...DEFAULT_BROKERAGES];
     this.signals = [];
-    this.apiKey = OPENAI_API_KEY;
+    this.apiKey = this.resolveOpenAIKey();
     this.stats = {
       totalSignalsProcessed: 0,
       activeConnections: 0,
@@ -517,6 +518,21 @@ class PipelineService {
       assetsDiscovered: 0,
       tradesExecuted: 0,
     };
+  }
+
+  private resolveOpenAIKey(): string {
+    // 1) Build-time env key
+    if (OPENAI_API_KEY && OPENAI_API_KEY.trim().length > 0) return OPENAI_API_KEY.trim();
+    // 2) Runtime overrides for hosted demos
+    try {
+      const lsKey = typeof window !== 'undefined' ? window.localStorage.getItem('yoree_api_key') : null;
+      if (lsKey && lsKey.trim().length > 0) return lsKey.trim();
+      const winKey = (typeof window !== 'undefined' ? (window as any).__OPENAI_API_KEY__ : '') || '';
+      if (typeof winKey === 'string' && winKey.trim().length > 0) return winKey.trim();
+    } catch {
+      // ignore runtime key resolution errors and fallback to empty
+    }
+    return '';
   }
 
   /**
@@ -711,6 +727,7 @@ class PipelineService {
       routedTo: [],
       timestamp: new Date().toISOString(),
       status: 'ingested',
+      llmExecution: 'fallback',
       pipelineSteps: [
         { name: 'Ingestion', status: 'completed', description: 'Signal ingested from social source' },
         { name: 'AI Analysis', status: 'pending', description: 'Analyzing with AI models...' },
@@ -731,6 +748,8 @@ class PipelineService {
     this.emitUpdate(signal);
 
     // Use OpenAI if API key available, otherwise fallback
+    // Refresh key at runtime in case it is injected after app boot.
+    this.apiKey = this.resolveOpenAIKey();
     if (this.apiKey) {
       try {
         const aiResult = await this.callOpenAI(rawContent);
@@ -750,20 +769,54 @@ class PipelineService {
           reasoning: a.reasoning || '',
         }));
         signal.strategies = aiResult.strategies || [];
+        signal.llmExecution = 'llm';
       } catch (err) {
-        console.warn('OpenAI call failed, falling back to local analysis:', err);
-        signal.hypothesis = this.generateLocalHypothesis(rawContent);
-        signal.confidence = Math.floor(Math.random() * 30) + 70;
-        signal.sentiment = this.detectSentiment(rawContent);
-        signal.discoveredAssets = this.discoverAndRouteAssets(rawContent);
+        const manualOverride = this.extractManualOverride(rawContent);
+        if (manualOverride) {
+          try {
+            const focusedInput = this.buildFocusedManualInput(rawContent, manualOverride);
+            const retryResult = await this.callOpenAI(focusedInput);
+            signal.hypothesis = retryResult.hypothesis;
+            signal.confidence = retryResult.confidence;
+            signal.sentiment = retryResult.sentiment;
+            signal.aiReasoning = retryResult.reasoning;
+            signal.discoveredAssets = retryResult.assets.map((a: any) => ({
+              symbol: a.symbol,
+              name: a.name,
+              assetClass: a.assetClass,
+              platform: a.platform || 'binance',
+              platformName: a.platformName || this.getPlatformNameForAsset(a.platform || a.assetClass),
+              platformUrl: a.platformUrl || this.getPlatformUrlForAsset(a.symbol, a.assetClass),
+              confidence: a.confidence || a.relevanceScore || 80,
+              action: a.action || 'long',
+              reasoning: a.reasoning || '',
+            }));
+            signal.strategies = retryResult.strategies || [];
+            signal.llmExecution = 'llm';
+          } catch (retryErr) {
+            console.warn('Focused manual OpenAI retry failed, falling back to local analysis:', retryErr);
+          }
+        }
+
+        if (!signal.hypothesis) {
+          console.warn('OpenAI call failed, falling back to local analysis:', err);
+          const fallbackInput = this.getFallbackAnalysisInput(rawContent);
+          signal.hypothesis = this.generateLocalHypothesis(fallbackInput);
+          signal.confidence = Math.floor(Math.random() * 30) + 70;
+          signal.sentiment = this.detectSentiment(fallbackInput);
+          signal.discoveredAssets = this.discoverAndRouteAssets(fallbackInput);
+          signal.llmExecution = 'fallback';
+        }
       }
     } else {
       // Local fallback
       await this.simulateDelay(25);
-      signal.hypothesis = this.generateLocalHypothesis(rawContent);
+      const fallbackInput = this.getFallbackAnalysisInput(rawContent);
+      signal.hypothesis = this.generateLocalHypothesis(fallbackInput);
       signal.confidence = Math.floor(Math.random() * 30) + 70;
-      signal.sentiment = this.detectSentiment(rawContent);
-      signal.discoveredAssets = this.discoverAndRouteAssets(rawContent);
+      signal.sentiment = this.detectSentiment(fallbackInput);
+      signal.discoveredAssets = this.discoverAndRouteAssets(fallbackInput);
+      signal.llmExecution = 'fallback';
     }
 
     signal.pipelineSteps![1].status = 'completed';
@@ -838,31 +891,38 @@ class PipelineService {
       const isShort = action === 'short';
       const isHold = action === 'hold';
       const intradayClasses = ['Crypto', 'DeFi', 'Forex', 'Futures'];
-      const horizon = intradayClasses.includes(asset.assetClass) ? '1-3 days' : '3-14 days';
+      const horizon = intradayClasses.includes(asset.assetClass) ? '1-2 days' : '2-3 days';
       const trigger = isShort
-        ? 'Enter on rejection at resistance after weak retest'
+        ? 'Entry trigger: rejection at resistance after a weak retest'
         : isHold
-          ? 'Wait for breakout or pullback confirmation before committing size'
-          : 'Enter on pullback to support after trend continuation signal';
+          ? 'Entry trigger: wait for breakout or pullback confirmation'
+          : 'Entry trigger: buy pullbacks into support during trend continuation';
       const confirmation = isShort
-        ? 'Confirm with lower-high structure and weakening momentum'
+        ? 'Technical confirmation: lower-high structure + weakening RSI/MACD'
         : isHold
-          ? 'Confirm with volume expansion and clear directional break'
-          : 'Confirm with higher-low structure and momentum continuation';
-      const stopLoss = isShort ? 'Stop above recent swing high / invalidation level' : 'Stop below recent swing low / invalidation level';
+          ? 'Technical confirmation: volume expansion + clean directional break'
+          : 'Technical confirmation: higher-low structure + bullish momentum continuation';
+      const limitPlan = isShort
+        ? 'Sell-limit ladder: 30% at entry zone, 35% at +0.75 ATR, 35% at +1.25 ATR'
+        : isHold
+          ? 'Buy-limit ladder (optional): 25/35/40% around support to reduce slippage'
+          : 'Buy-limit ladder: 30% near support, 35% at -0.75 ATR pullback, 35% at -1.25 ATR pullback';
+      const stopLoss = isShort ? 'Hard stop above recent swing high / invalidation level' : 'Hard stop below recent swing low / invalidation level';
       const takeProfit = isHold
-        ? 'Take partial at first target; trail remainder only after conviction improves'
-        : 'Take partial at 1R, second target at 2R+, then trail remaining size';
-      const positionPlan = 'Risk 0.5%-2.0% of account per trade; scale in with 2-3 tranches';
+        ? 'Take profit: 35% at first resistance, 35% at second resistance, trail final 30% by structure'
+        : 'Take profit: 33% at 1R, 33% at 2R, trail final 34% using 20EMA / prior swing';
+      const exposure = isHold
+        ? 'Exposure: starter size only (0.5%-1.0% account risk)'
+        : 'Exposure: 1.0%-2.0% account risk max, scaled in over 2-3 tranches';
 
       return {
         assetSymbol: asset.symbol,
         assetClass: asset.assetClass,
         action,
-        entry: `${trigger}. ${confirmation}.`,
+        entry: `${trigger}. ${confirmation}. ${limitPlan}.`,
         exit: takeProfit,
-        risk: `${positionPlan}. ${stopLoss}.`,
-        timeHorizon: asset.assetClass === 'Predictions' || asset.assetClass === 'Sports Bets' ? '1-7 days' : horizon,
+        risk: `${exposure}. ${stopLoss}. Technicals: 20EMA/50EMA trend, RSI regime, volume confirmation, and support/resistance map.`,
+        timeHorizon: asset.assetClass === 'Predictions' || asset.assetClass === 'Sports Bets' ? '1-3 days' : horizon,
         platform: asset.platformName || asset.platform,
         platformUrl: asset.platformUrl,
       };
@@ -884,15 +944,41 @@ class PipelineService {
       .map(([key, p]) => `${p.name} (${p.category}) → ${p.url}`)
       .join('\n');
 
+    const normalizedInput = rawContent.slice(0, 15000);
+    const manualOverride = this.extractManualOverride(rawContent);
+    const corpusLines = this.extractCorpusLines(normalizedInput);
+    const candidates = this.extractMarketCandidates(corpusLines);
+    const candidateSummary = this.candidateSummary(candidates);
+    const nonMajorInCorpus = candidates.filter(c => !this.isMajorSymbol(c.symbol)).length;
+    const vetting = this.buildCorpusVetting(corpusLines);
     const prompt = `# GREED SIGNAL PIPELINE ANALYSIS
 
-You are Yoree's signal analysis engine. Analyze the following social intelligence and generate:
+You are Greed's signal analysis engine. Analyze the following social intelligence corpus (often noisy, multilingual, and meme-heavy) and generate:
 1. A trading hypothesis
 2. Discovered assets across ALL asset classes with the EXACT platform to trade them
 3. Actionable strategies
+4. Evidence snippets copied from the corpus that support the thesis
 
-## INPUT SIGNAL:
-"${rawContent}"
+## BALANCED REASONING POLICY
+- Use corpus as the primary grounding source (quoted evidence is mandatory).
+- Use LLM market reasoning as secondary synthesis (structure, risk framing, scenario building).
+- Blend both: do not output purely corpus quotes without analysis, and do not output pure priors without corpus support.
+- If corpus is sparse/noisy, still provide a best-effort thesis with explicit uncertainty.
+- Be specific: include concrete triggers, invalidation levels/conditions, and a short execution plan.
+
+## INPUT SOCIAL CORPUS (verbatim)
+===CORPUS_START===
+${normalizedInput}
+===CORPUS_END===
+
+## MANUAL USER OVERRIDE (highest priority if present)
+${manualOverride || 'none'}
+
+## EXTRACTED CANDIDATES (pre-LLM)
+${candidateSummary}
+
+## CORPUS VETTING FINDINGS
+${vetting.summary}
 
 ## AVAILABLE PLATFORMS:
 ${platformList}
@@ -906,6 +992,11 @@ Analyze the signal and return ONLY valid JSON:
   "confidence": 85,
   "sentiment": "bullish",
   "reasoning": "Brief explanation of why this is the analysis",
+  "evidence": [
+    "Exact quote from corpus line 1",
+    "Exact quote from corpus line 2",
+    "Exact quote from corpus line 3"
+  ],
   "assets": [
     {
       "symbol": "ETH",
@@ -927,7 +1018,7 @@ Analyze the signal and return ONLY valid JSON:
       "entry": "Buy at current levels",
       "exit": "Take profit at +15%",
       "risk": "Stop loss at -5%",
-      "timeHorizon": "1-2 weeks",
+      "timeHorizon": "1-3 days",
       "platform": "Binance",
       "platformUrl": "https://www.binance.com/en/trade/ETH_USDT"
     }
@@ -939,9 +1030,24 @@ IMPORTANT:
 - Discover assets across crypto, stocks, predictions, sports, DeFi, futures, forex as applicable
 - Each asset MUST have a real platform name and URL from the available platforms list
 - Include 3-8 relevant assets
+- Include at least 2 different asset classes when supported by corpus; include 3+ classes when evidence exists
 - Be specific about which exchange/platform to use for each asset
 - confidence is 0-100
-- sentiment is "bullish", "bearish", or "neutral"`;
+- sentiment is "bullish", "bearish", or "neutral"
+- evidence must contain 2-5 exact snippets from inside CORPUS_START/CORPUS_END
+- do not invent evidence
+- NEVER say "no live corpus" or "lack of live corpus"
+- Even if signal quality is weak, still output a tradable watchlist with best-effort confidence and clear risk caveats
+- Prioritize explicit symbols/tickers/token addresses and market catalysts found in corpus
+- In reasoning, target ~60-75% corpus-grounded observations and ~25-40% LLM synthesis (market structure, execution framing, risk context)
+- reasoning must follow this structure exactly:
+  1) Setup:
+  2) Catalysts:
+  3) Trigger to act:
+  4) Invalidation:
+  5) Execution (1-3 days):
+- If MANUAL USER OVERRIDE is present, prioritize it for asset selection and execution while still grounding evidence in corpus lines when available.
+${nonMajorInCorpus > 0 ? `- Corpus contains non-major candidates; include at least ${Math.min(2, nonMajorInCorpus)} non-major assets in output.` : ''}`;
 
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
@@ -950,7 +1056,7 @@ IMPORTANT:
         messages: [
           {
             role: 'system',
-            content: 'You are the Yoree Signal Market AI engine. You analyze social signals and discover tradeable assets across all asset classes (crypto, stocks, predictions, sports, DeFi, futures, forex). Always respond with valid JSON only.',
+            content: 'You are the Greed Signal Market AI engine. You analyze social signals and discover tradeable assets across all asset classes (crypto, stocks, predictions, sports, DeFi, futures, forex). Always respond with valid JSON only. Balance corpus-grounded evidence with model synthesis: corpus is primary evidence, LLM reasoning is secondary structure and risk framing.',
           },
           { role: 'user', content: prompt },
         ],
@@ -965,22 +1071,81 @@ IMPORTANT:
       }
     );
 
-    const text = response.data.choices[0].message.content.trim();
+    const text = response.data.choices?.[0]?.message?.content?.trim?.() || '';
+    let parsed: any = null;
     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
-
     if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+      try {
+        parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+      } catch {
+        parsed = null;
+      }
+    }
+
+    // Retry once with a strict JSON-repair prompt when first parse fails.
+    if (!parsed) {
+      const repaired = await this.repairJsonWithLLM(text);
+      if (repaired) parsed = repaired;
+    }
+
+    if (parsed) {
+      const parsedAssets = this.enforceAssetCoverage(parsed.assets || [], candidates);
+      const vettedAssets = await this.vetAssetsWithLLM(normalizedInput, parsedAssets, candidates);
+      const vettedEvidence = this.enforceVettedEvidence(parsed.evidence, vetting, corpusLines);
+      const baseReasoning = typeof parsed.reasoning === 'string'
+        ? parsed.reasoning
+        : (parsed.reasoning ? this.safeStringify(parsed.reasoning) : '');
+      const vettedReasoning = this.enhanceReasoningSpecificity(baseReasoning, corpusLines, vetting);
       return {
         hypothesis: parsed.hypothesis || 'Signal analyzed successfully.',
         confidence: parsed.confidence || 75,
         sentiment: parsed.sentiment || 'neutral',
-        reasoning: parsed.reasoning || '',
-        assets: parsed.assets || [],
-        strategies: parsed.strategies || [],
+        reasoning: this.withEvidence(`${vettedReasoning}\n\nVetting:\n${vetting.summary}`, vettedEvidence, corpusLines),
+        assets: vettedAssets,
+        strategies: (parsed.strategies || []).map((s: any) => ({
+          ...s,
+          timeHorizon: this.normalizeToShortDays(String(s?.timeHorizon || '1-3 days')),
+        })),
       };
     }
 
     throw new Error('Failed to parse OpenAI response');
+  }
+
+  private async repairJsonWithLLM(raw: string): Promise<any | null> {
+    if (!this.apiKey || !raw?.trim()) return null;
+    try {
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'Convert the following content into valid JSON only. Do not add commentary. Preserve keys and values where possible.',
+            },
+            {
+              role: 'user',
+              content: raw.slice(0, 12000),
+            },
+          ],
+          temperature: 0,
+          max_tokens: 1800,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      const text = response.data.choices?.[0]?.message?.content?.trim?.() || '';
+      const match = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+      if (!match) return null;
+      return JSON.parse(match[1] || match[0]);
+    } catch {
+      return null;
+    }
   }
 
   private getPlatformNameForAsset(platformOrClass: string): string {
@@ -1024,6 +1189,424 @@ IMPORTANT:
     return `Neutral signal: "${rawContent.slice(0, 80)}..." — Requires further validation. Routing to discovery for asset matching.`;
   }
 
+  private getFallbackAnalysisInput(rawContent: string): string {
+    const manualOverride = this.extractManualOverride(rawContent);
+    if (manualOverride) return manualOverride;
+    const corpusOnly = this.extractCorpusLines(rawContent)
+      .filter((l) => !/^corpus_source:/i.test(l))
+      .join('\n');
+    return corpusOnly.trim().length ? corpusOnly : rawContent;
+  }
+
+  private extractManualOverride(rawContent: string): string | null {
+    const match = rawContent.match(/MANUAL SIGNAL CONTEXT \(user override\):\s*([\s\S]*)$/i);
+    if (!match) return null;
+    const cleaned = match[1]
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .slice(0, 4)
+      .join(' ');
+    return cleaned.length ? cleaned : null;
+  }
+
+  private buildFocusedManualInput(rawContent: string, manualOverride: string): string {
+    const compactCorpus = this.extractCorpusLines(rawContent).slice(0, 120).join('\n');
+    return [
+      `MANUAL SIGNAL CONTEXT (user override): ${manualOverride}`,
+      '',
+      'CORPUS_SOURCE: focused_manual_retry',
+      '',
+      compactCorpus,
+    ].join('\n');
+  }
+
+  private withEvidence(reasoning: string, evidence: unknown, corpusLines: string[]): string {
+    const badEvidencePattern = /you are a trading-oriented signal engine|selected social inputs|proceed by extracting|no live corpus/i;
+    const evidenceList = Array.isArray(evidence)
+      ? evidence
+          .filter((e): e is string => typeof e === 'string' && e.trim().length > 0)
+          .filter((e) => !badEvidencePattern.test(e))
+          .filter((e) => corpusLines.some((line) => line.includes(e) || e.includes(line.slice(0, Math.min(40, line.length)))))
+          .slice(0, 4)
+      : [];
+    if (evidenceList.length) {
+      return `${reasoning}\n\nEvidence:\n- ${evidenceList.join('\n- ')}`;
+    }
+
+    // Fallback evidence: first non-empty corpus lines.
+    const fallback = corpusLines
+      .filter((l) => !badEvidencePattern.test(l))
+      .slice(0, 3);
+    if (!fallback.length) return reasoning;
+    return `${reasoning}\n\nEvidence:\n- ${fallback.join('\n- ')}`;
+  }
+
+  private enhanceReasoningSpecificity(
+    reasoningInput: unknown,
+    corpusLines: string[],
+    vetting: { btcTargets: string[]; aiNarrativeLines: string[] }
+  ): string {
+    try {
+      const reasoning = typeof reasoningInput === 'string'
+        ? reasoningInput
+        : (reasoningInput ? this.safeStringify(reasoningInput) : '');
+      const lower = (reasoning || '').toString().toLowerCase();
+    const hasStructuredSections =
+      lower.includes('setup:') &&
+      lower.includes('catalysts:') &&
+      lower.includes('trigger to act:') &&
+      lower.includes('invalidation:') &&
+      lower.includes('execution (1-3 days):');
+    if (hasStructuredSections) return reasoning;
+
+    const priceTargets = [...new Set(
+      corpusLines
+        .flatMap((line) => [...line.matchAll(/\$?(BTC|ETH|SOL|BNB)\s*([0-9]{2,3}k)\b/gi)].map((m) => `${m[1].toUpperCase()} ${m[2].toLowerCase()}`))
+        .slice(0, 4)
+    )];
+    const addresses = [...new Set(
+      corpusLines.flatMap((line) => [...line.matchAll(/0x[a-fA-F0-9]{8,40}/g)].map((m) => m[0]))
+    )].slice(0, 2);
+
+    const catalysts = [
+      vetting.btcTargets.length ? `BTC target chatter: ${vetting.btcTargets.join(', ')}` : null,
+      vetting.aiNarrativeLines.length ? 'AI narrative momentum inside Binance/BSC threads' : null,
+      addresses.length ? `On-chain token/address mentions: ${addresses.join(', ')}` : null,
+    ].filter(Boolean) as string[];
+
+    const trigger = priceTargets.length
+      ? `Act only if momentum confirms around ${priceTargets.join(' / ')} with sustained mention velocity.`
+      : 'Act only after repeated symbol/address mentions appear across multiple authors.';
+
+    const invalidation = 'Stand down if mentions collapse, scam/risk flags dominate, or price rejects key breakout levels intraday.';
+    const execution = 'Scale in 2-3 tranches, use tight risk limits, and realize partial profits into momentum spikes.';
+
+    return [
+      'Setup:',
+      reasoning || 'Corpus shows tradable momentum pockets with mixed quality and high variance.',
+      '',
+      'Catalysts:',
+      `- ${catalysts.length ? catalysts.join('\n- ') : 'No dominant catalyst cluster; treat as lower-conviction watchlist.'}`,
+      '',
+      'Trigger to act:',
+      trigger,
+      '',
+      'Invalidation:',
+      invalidation,
+      '',
+      'Execution (1-3 days):',
+      execution,
+    ].join('\n');
+    } catch {
+      // If anything goes wrong, return a minimal safe structure rather than throwing.
+      return 'Setup: Corpus-derived signal requires further validation.\n\nCatalysts:\n- Sparse or noisy evidence detected\n\nTrigger to act:\n- Confirm with repeated mentions across multiple authors\n\nInvalidation:\n- Rejection at key levels or collapse in mention velocity\n\nExecution (1-3 days):\n- Small sizing, staged entries, tight stops';
+    }
+  }
+
+  private safeStringify(obj: unknown): string {
+    try {
+      return JSON.stringify(obj);
+    } catch {
+      return String(obj);
+    }
+  }
+
+  private normalizeToShortDays(timeHorizon: string): string {
+    const lower = timeHorizon.toLowerCase();
+    if (lower.includes('week')) return '2-3 days';
+    if (lower.includes('month')) return '2-3 days';
+    return /day/.test(lower) ? timeHorizon : '1-3 days';
+  }
+
+  private async vetAssetsWithLLM(
+    rawCorpus: string,
+    assets: any[],
+    candidates: Array<{ symbol: string; mentions: number; uniqueAuthors: number; riskFlags: number; score: number }>
+  ): Promise<any[]> {
+    if (!assets?.length || !this.apiKey) return assets;
+    try {
+      const platformList = Object.entries(PLATFORM_DIRECTORY)
+        .map(([key, p]) => `${key}: ${p.name} (${p.category}) -> ${p.url}`)
+        .join('\n');
+
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a strict trading asset vetter. Validate assets from social corpus. Keep only candidates that are plausible and map each to a concrete place to buy/trade. Return valid JSON only.',
+            },
+            {
+              role: 'user',
+              content:
+`Validate and normalize this asset list.
+
+Rules:
+- Keep assets that are either:
+  1) explicitly present in corpus ($TICKER, token name, or contract address), OR
+  2) major market assets (BTC/ETH/SOL/BNB) used as context.
+- For each retained asset include:
+  - symbol
+  - name
+  - assetClass
+  - platformName
+  - platformUrl
+  - confidence (0-100)
+  - action
+  - reasoning (brief)
+  - buyVenueNote (short where/how to buy)
+- If platform/url is missing, choose best fit from available platforms.
+- Return 3-8 assets if possible.
+
+AVAILABLE PLATFORMS:
+${platformList}
+
+CORPUS:
+${rawCorpus.slice(0, 9000)}
+
+ASSETS_TO_VET:
+${JSON.stringify(assets).slice(0, 8000)}
+
+Return JSON:
+{
+  "assets": [...]
+}`,
+            },
+          ],
+          temperature: 0.2,
+          max_tokens: 1400,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const text = response.data.choices?.[0]?.message?.content?.trim?.() || '';
+      const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return assets;
+      const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+      const vetted = Array.isArray(parsed?.assets) ? parsed.assets : [];
+      if (!vetted.length) return assets;
+      return this.normalizeVettedAssets(this.enforceAssetCoverage(vetted, candidates), candidates).slice(0, 10);
+    } catch {
+      return this.normalizeVettedAssets(this.enforceAssetCoverage(assets, candidates), candidates).slice(0, 10);
+    }
+  }
+
+  private normalizeVettedAssets(
+    assets: any[],
+    candidates: Array<{ symbol: string; mentions: number; uniqueAuthors: number; riskFlags: number; score: number }> = []
+  ): any[] {
+    const candidateBySymbol = new Map(candidates.map((c) => [c.symbol.toUpperCase(), c]));
+    return assets.map((a) => {
+      const symbol = String(a?.symbol || '').toUpperCase();
+      const fallbackClass = ['AAPL', 'TSLA', 'NVDA', 'COIN', 'XOM', 'CRCL'].includes(symbol) ? 'Stocks' : 'Crypto';
+      const platformKey = this.findPlatformKeyByName(String(a?.platformName || '')) || (fallbackClass === 'Stocks' ? 'robinhood' : 'binance');
+      const dir = PLATFORM_DIRECTORY[platformKey];
+      const c = candidateBySymbol.get(symbol);
+      const metrics = c
+        ? ` corpusScore=${c.score}, mentions=${c.mentions}, authors=${c.uniqueAuthors}, riskFlags=${c.riskFlags}.`
+        : '';
+      return {
+        symbol,
+        name: a?.name || symbol,
+        assetClass: a?.assetClass || fallbackClass,
+        platform: platformKey,
+        platformName: a?.platformName || dir?.name || 'Binance',
+        platformUrl: a?.platformUrl || dir?.url || 'https://www.binance.com/en/trade',
+        confidence: Number(a?.confidence || 70),
+        action: a?.action || 'watch',
+        reasoning: `${a?.reasoning || 'Vetted candidate from corpus.'}${a?.buyVenueNote ? ` ${a.buyVenueNote}` : ''}${metrics}`,
+      };
+    });
+  }
+
+  private findPlatformKeyByName(platformName: string): string | null {
+    const target = platformName.toLowerCase().trim();
+    if (!target) return null;
+    for (const [key, p] of Object.entries(PLATFORM_DIRECTORY)) {
+      if (p.name.toLowerCase() === target) return key;
+    }
+    return null;
+  }
+
+  private extractCorpusLines(rawContent: string): string[] {
+    return rawContent
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0)
+      .filter((l) => !/you are a trading-oriented signal engine|social corpus|tradable theme clusters|filtered tradable lines/i.test(l));
+  }
+
+  private isMajorSymbol(symbol: string): boolean {
+    return ['BTC', 'ETH', 'BNB', 'SOL'].includes(symbol.toUpperCase());
+  }
+
+  private extractMarketCandidates(lines: string[]): Array<{ symbol: string; mentions: number; uniqueAuthors: number; riskFlags: number; score: number }> {
+    const map = new Map<string, { mentions: number; authors: Set<string>; riskFlags: number }>();
+    const nameToSymbol: Record<string, string> = {
+      bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL', bnb: 'BNB', usdc: 'USDC', usdt: 'USDT',
+      circle: 'CRCL', coinbase: 'COIN', monad: 'MON',
+    };
+
+    for (const line of lines) {
+      const authorMatch = line.match(/^@([A-Za-z0-9_]+)/);
+      const author = authorMatch?.[1] || 'unknown';
+      const risk = /scam|rug|stolen|hacked|be safe/i.test(line) ? 1 : 0;
+
+      const symbols = new Set<string>();
+      for (const m of line.matchAll(/\$([A-Z]{2,12})\b/g)) symbols.add(m[1].toUpperCase());
+      for (const m of line.matchAll(/\b(BTC|ETH|SOL|BNB|CRCL|USDC|USDT|MON|AVAX|LINK|AAPL|TSLA|NVDA|COIN|XOM)\b/gi)) symbols.add(m[1].toUpperCase());
+      for (const [name, sym] of Object.entries(nameToSymbol)) if (new RegExp(`\\b${name}\\b`, 'i').test(line)) symbols.add(sym);
+      for (const m of line.matchAll(/0x[a-fA-F0-9]{8,40}/g)) symbols.add(`ADDR_${m[0].slice(2, 8).toUpperCase()}`);
+
+      for (const symbol of symbols) {
+        if (!map.has(symbol)) map.set(symbol, { mentions: 0, authors: new Set<string>(), riskFlags: 0 });
+        const entry = map.get(symbol)!;
+        entry.mentions += 1;
+        entry.authors.add(author);
+        entry.riskFlags += risk;
+      }
+    }
+
+    return [...map.entries()]
+      .map(([symbol, v]) => {
+        const novelty = this.isMajorSymbol(symbol) ? 0 : 1.5;
+        const score = v.mentions * 1.8 + v.authors.size * 1.2 + novelty - v.riskFlags * 0.8;
+        return { symbol, mentions: v.mentions, uniqueAuthors: v.authors.size, riskFlags: v.riskFlags, score: Number(score.toFixed(2)) };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20);
+  }
+
+  private candidateSummary(candidates: Array<{ symbol: string; mentions: number; uniqueAuthors: number; riskFlags: number; score: number }>): string {
+    if (!candidates.length) return 'No extracted candidates.';
+    return candidates
+      .slice(0, 12)
+      .map((c) => `${c.symbol} | score=${c.score} | mentions=${c.mentions} | uniqueAuthors=${c.uniqueAuthors} | riskFlags=${c.riskFlags}`)
+      .join('\n');
+  }
+
+  private enforceAssetCoverage(assets: any[], candidates: Array<{ symbol: string; score: number }>): any[] {
+    const out = Array.isArray(assets) ? [...assets] : [];
+    const existing = new Set(out.map((a) => String(a?.symbol || '').toUpperCase()));
+    const nonMajorCandidates = candidates.filter(c => !this.isMajorSymbol(c.symbol) && !c.symbol.startsWith('ADDR_'));
+
+    const hasNonMajor = out.some((a) => !this.isMajorSymbol(String(a?.symbol || '').toUpperCase()));
+    if (!hasNonMajor && nonMajorCandidates.length) {
+      for (const c of nonMajorCandidates.slice(0, 2)) {
+        const symbol = c.symbol.toUpperCase();
+        if (existing.has(symbol)) continue;
+        out.push({
+          symbol,
+          name: symbol,
+          assetClass: ['AAPL', 'TSLA', 'NVDA', 'COIN', 'XOM', 'CRCL'].includes(symbol) ? 'Stocks' : 'Crypto',
+          platform: ['AAPL', 'TSLA', 'NVDA', 'COIN', 'XOM', 'CRCL'].includes(symbol) ? 'robinhood' : 'binance',
+          platformName: ['AAPL', 'TSLA', 'NVDA', 'COIN', 'XOM', 'CRCL'].includes(symbol) ? 'Robinhood' : 'Binance',
+          platformUrl: ['AAPL', 'TSLA', 'NVDA', 'COIN', 'XOM', 'CRCL'].includes(symbol) ? 'https://robinhood.com/stocks' : 'https://www.binance.com/en/trade',
+          confidence: 70,
+          action: 'watch',
+          reasoning: 'Promoted from social mention concentration and novelty scoring.',
+        });
+        existing.add(symbol);
+      }
+    }
+
+    // Enforce class diversity when possible (avoid all assets collapsing into one class).
+    const classCount = new Map<string, number>();
+    for (const a of out) {
+      const cls = String(a?.assetClass || this.classForSymbol(String(a?.symbol || '')) || 'Crypto');
+      classCount.set(cls, (classCount.get(cls) || 0) + 1);
+      if (!a.assetClass) a.assetClass = cls;
+    }
+
+    if (classCount.size < 2) {
+      const seedByClass: Array<{ symbol: string; assetClass: string; platform: string; platformName: string; platformUrl: string }> = [
+        { symbol: 'CRCL', assetClass: 'Stocks', platform: 'robinhood', platformName: 'Robinhood', platformUrl: 'https://robinhood.com/stocks' },
+        { symbol: 'Event', assetClass: 'Predictions', platform: 'kalshi', platformName: 'Kalshi', platformUrl: 'https://kalshi.com/markets' },
+      ];
+      for (const seed of seedByClass) {
+        if (existing.has(seed.symbol.toUpperCase())) continue;
+        out.push({
+          ...seed,
+          name: seed.symbol,
+          confidence: 62,
+          action: 'watch',
+          reasoning: 'Added for class diversification to reduce concentration risk.',
+        });
+        existing.add(seed.symbol.toUpperCase());
+        classCount.set(seed.assetClass, (classCount.get(seed.assetClass) || 0) + 1);
+        if (classCount.size >= 2) break;
+      }
+    }
+
+    return out.slice(0, 10);
+  }
+
+  private classForSymbol(symbol: string): string | null {
+    const s = symbol.toUpperCase();
+    if (['BTC', 'ETH', 'SOL', 'BNB', 'MON', 'AVAX', 'LINK', 'USDC', 'USDT'].includes(s)) return 'Crypto';
+    if (['AAPL', 'TSLA', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'XOM', 'CVX', 'COIN', 'CRCL', 'AVAV', 'KTOS', 'JOBY', 'EH'].includes(s)) return 'Stocks';
+    if (s === 'EVENT') return 'Predictions';
+    return null;
+  }
+
+  private buildCorpusVetting(lines: string[]): {
+    summary: string;
+    btcTargets: string[];
+    aiNarrativeLines: string[];
+  } {
+    const btcTargets: string[] = [];
+    const aiNarrativeLines: string[] = [];
+
+    for (const line of lines) {
+      if (/\$BTC\s*35k/i.test(line)) btcTargets.push('$BTC 35k');
+      if (/\$BTC\s*50k/i.test(line)) btcTargets.push('$BTC 50k');
+      if (/(ai|binance).*?(叙事|narrative|bsc|生态)/i.test(line) || /ai/i.test(line) && /(token|narrative|binance|bsc)/i.test(line)) {
+        aiNarrativeLines.push(line);
+      }
+    }
+
+    const uniqTargets = [...new Set(btcTargets)];
+    const summaryParts = [
+      `BTC targets detected: ${uniqTargets.length ? uniqTargets.join(', ') : 'none'}`,
+      `AI narrative lines detected: ${aiNarrativeLines.length}`,
+    ];
+    if (aiNarrativeLines.length) {
+      summaryParts.push(`AI sample: ${aiNarrativeLines[0]}`);
+    }
+    return {
+      summary: summaryParts.join('\n'),
+      btcTargets: uniqTargets,
+      aiNarrativeLines: aiNarrativeLines.slice(0, 3),
+    };
+  }
+
+  private enforceVettedEvidence(evidence: unknown, vetting: { btcTargets: string[]; aiNarrativeLines: string[] }, corpusLines: string[]): string[] {
+    const out: string[] = Array.isArray(evidence)
+      ? evidence.filter((e): e is string => typeof e === 'string' && e.trim().length > 0).slice(0, 5)
+      : [];
+
+    for (const t of vetting.btcTargets) {
+      if (!out.some((e) => e.includes(t))) out.push(t);
+    }
+    for (const line of vetting.aiNarrativeLines) {
+      if (!out.some((e) => e.includes(line.slice(0, 20)))) out.push(line);
+    }
+
+    // Keep only lines that exist in corpus or vetted synthetic target markers.
+    return out
+      .filter((e) => vetting.btcTargets.includes(e) || corpusLines.some((l) => l.includes(e) || e.includes(l.slice(0, Math.min(40, l.length)))))
+      .slice(0, 5);
+  }
+
   private discoverAndRouteAssets(rawContent: string): DiscoveredAsset[] {
     const content = rawContent.toLowerCase();
     const discovered: DiscoveredAsset[] = [];
@@ -1044,6 +1627,10 @@ IMPORTANT:
       'aapl|apple': 'AAPL', 'tsla|tesla': 'TSLA', 'nvda|nvidia': 'NVDA',
       'msft|microsoft': 'MSFT', 'googl|google|alphabet': 'GOOGL',
       'oil|crude|petroleum|xom|exxon': 'XOM',
+      'drone|uav|unmanned|aerovironment|avav': 'AVAV',
+      'kratos|ktos|defense drone': 'KTOS',
+      'evtol|joby': 'JOBY',
+      'ehang|eh': 'EH',
     };
     for (const [pattern, symbol] of Object.entries(stockPatterns)) {
       if (new RegExp(pattern).test(content)) {
@@ -1073,8 +1660,8 @@ IMPORTANT:
       );
     }
 
-    // Always include MON on Monad
-    if (!discovered.some(a => a.symbol === 'MON')) {
+    // Include MON only when corpus/query explicitly references Monad/privacy context.
+    if (/(monad|mon\b|unlink|privacy|shield)/i.test(content) && !discovered.some(a => a.symbol === 'MON')) {
       discovered.push({
         symbol: 'MON',
         name: 'Monad',
@@ -1086,14 +1673,16 @@ IMPORTANT:
       });
     }
 
-    // Deduplicate
-    const seen = new Set<string>();
-    return discovered.filter(a => {
-      const key = `${a.symbol}-${a.platform}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    // Deduplicate by symbol and keep the highest-confidence route (avoid AVAV repeated across platforms).
+    const bestBySymbol = new Map<string, DiscoveredAsset>();
+    for (const asset of discovered) {
+      const key = asset.symbol.toUpperCase();
+      const existing = bestBySymbol.get(key);
+      if (!existing || (asset.confidence || 0) > (existing.confidence || 0)) {
+        bestBySymbol.set(key, asset);
+      }
+    }
+    return [...bestBySymbol.values()];
   }
 
   // ============================================================

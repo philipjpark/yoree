@@ -73,6 +73,7 @@ import pipelineService, {
 import monadService from '../services/monadService';
 import monadContractService from '../services/monadContractService';
 import { signalService } from '../services/signalService';
+import { DEMO_X_CORPUS } from '../constants/demoXCorpus';
 
 const categoryIcons: Record<string, React.ReactNode> = {
   'Predictions': <CasinoIcon sx={{ fontSize: 16 }} />,
@@ -100,7 +101,7 @@ const categoryColors: Record<string, string> = {
 
 const Pipeline: React.FC = () => {
   const { theme } = useTheme();
-  const { state: txState, registerSignal: registerOnChain, executeWithPreFlight } = useTransactionLayer();
+  const { state: txState, executeWithPreFlight } = useTransactionLayer();
   const navigate = useNavigate();
   const isDark = theme.palette.mode === 'dark';
 
@@ -110,6 +111,7 @@ const Pipeline: React.FC = () => {
   const [stats, setStats] = useState(pipelineService.getStats());
   const [recentSignals, setRecentSignals] = useState<PipelineSignal[]>([]);
   const [signalInput, setSignalInput] = useState('');
+  const [useManualInput, setUseManualInput] = useState(false);
   const [selectedSource, setSelectedSource] = useState<SocialPlatform>('x');
   const [isProcessing, setIsProcessing] = useState(false);
   const [walletConnected, setWalletConnected] = useState(false);
@@ -120,9 +122,6 @@ const Pipeline: React.FC = () => {
   const [createdSignalId, setCreatedSignalId] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  // On-chain registration state
-  const [onChainResult, setOnChainResult] = useState<{ txHash: string; signalId: number; explorerUrl: string } | null>(null);
-  const [isRegistering, setIsRegistering] = useState(false);
   // "Others" manual source dialog
   const [showOtherDialog, setShowOtherDialog] = useState(false);
   const [otherSourceName, setOtherSourceName] = useState('');
@@ -134,9 +133,68 @@ const Pipeline: React.FC = () => {
   const [isBuildingCorpus, setIsBuildingCorpus] = useState(false);
   const [selectedAssetKeys, setSelectedAssetKeys] = useState<string[]>([]);
   const [lastAnalysisInput, setLastAnalysisInput] = useState('');
+  const [corpusMeta, setCorpusMeta] = useState<{
+    sourceLabel: string;
+    lineCount: number;
+    xSources: number;
+    redditSources: number;
+  } | null>(null);
   const xHandle = process.env.REACT_APP_X_HANDLE || 'bibim_official';
-  const xOAuthUrl = process.env.REACT_APP_X_OAUTH_URL || `https://x.com/${xHandle}`;
-  const redditConnectUrl = process.env.REACT_APP_REDDIT_CONNECT_URL || 'https://www.reddit.com';
+  const staticXCorpusUrl = 'http://127.0.0.1:3001/api/social/x/corpus?handle=bibim_official';
+  const socialAccentColor = (platform: SocialPlatform, color: string) =>
+    platform === 'reddit' ? '#f59e0b' : color;
+
+  const lowSignalPattern = /myxanniversary|happy birthday|thank you grandma|drop your mugshot|obs crashing|fortnite skin/i;
+  const tradableCuePattern = /(\$[A-Z]{2,12}|0x[a-fA-F0-9]{8,})|\b(BTC|ETH|SOL|BNB|CRCL|USDC|USDT|MON|AVAX|LINK|COINBASE|CIRCLE|TETHER|FED|CPI|GDP|RATE|MACRO|ETF|TOKEN|BINANCE|BSC|SOLANA|ETHEREUM|BITCOIN|WALLET|MINT|LAUNCH|PUMP|RUG|SCAM)\b/i;
+
+  const normalizeCorpusForTrading = (rawCorpus: string) => {
+    const lines = rawCorpus
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    const filtered = lines.filter((line) => (tradableCuePattern.test(line) || /[A-Z]{2,6}/.test(line)) && !lowSignalPattern.test(line));
+
+    const themes = [
+      { key: 'majors', label: 'Majors (BTC/ETH/SOL/BNB)', regex: /\b(\$?BTC|\$?ETH|\$?SOL|\$?BNB|bitcoin|ethereum|solana|bsc)\b/i },
+      { key: 'stablecoin', label: 'Stablecoin / Issuer', regex: /\b(USDC|USDT|CRCL|CIRCLE|TETHER)\b/i },
+      { key: 'ai-meme', label: 'AI / Meme / New Token', regex: /\b(AI|meme|token|new wallet|launch|mint|pump)\b/i },
+      { key: 'macro', label: 'Macro / Rates', regex: /\b(FED|CPI|GDP|rate|macro|treasuries)\b/i },
+      { key: 'risk', label: 'Risk / Scam Alerts', regex: /\b(scam|stolen|hacked|be safe|rug)\b/i },
+    ];
+
+    const themeBuckets = themes
+      .map((t) => ({
+        ...t,
+        lines: filtered.filter((line) => t.regex.test(line)),
+      }))
+      .filter((t) => t.lines.length > 0)
+      .map((t) => ({
+        label: t.label,
+        score: t.lines.length,
+        samples: t.lines.slice(0, 3),
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    const selectedLines = (filtered.length ? filtered : lines).slice(0, 120);
+    const themeSummary = themeBuckets.length
+      ? themeBuckets
+          .slice(0, 4)
+          .map((t) => `${t.label}: score ${t.score}\n${t.samples.map((s) => `- ${s}`).join('\n')}`)
+          .join('\n\n')
+      : 'Emerging mentions are sparse; prioritize explicit symbols, token addresses, and market-linked catalysts from available lines.';
+
+    const normalizedCorpus =
+      `TRADABLE THEME CLUSTERS (scored):\n${themeSummary}\n\n` +
+      `FILTERED TRADABLE LINES (${selectedLines.length}):\n${selectedLines.join('\n')}`;
+
+    return {
+      normalizedCorpus,
+      selectedLines,
+      droppedCount: Math.max(lines.length - selectedLines.length, 0),
+      totalCount: lines.length,
+    };
+  };
 
   useEffect(() => {
     const ws = monadService.getWalletState();
@@ -168,11 +226,10 @@ const Pipeline: React.FC = () => {
     } else {
       // Connect if not connected
       if (platform === 'x') {
-        // OAuth URL should be configured in env; fallback opens the user's X profile.
-        window.open(xOAuthUrl, '_blank');
+        // Backend token flow: mark connected without opening external account.
         pipelineService.connectSocial(platform, xHandle);
       } else if (platform === 'reddit') {
-        window.open(redditConnectUrl, '_blank');
+        // Backend/public ingestion flow for Reddit.
         pipelineService.connectSocial(platform, 'public_subreddits');
       } else {
         pipelineService.connectSocial(platform, `demo_${platform}`);
@@ -217,6 +274,10 @@ const Pipeline: React.FC = () => {
   };
 
   const handleProcessSignal = async () => {
+    if (!useManualInput) {
+      await runTradingPrompt(false);
+      return;
+    }
     if (!signalInput.trim()) return;
     setIsProcessing(true);
     setActiveSignal(null);
@@ -224,11 +285,18 @@ const Pipeline: React.FC = () => {
     setStreamingText('');
     setIsStreaming(true);
 
-    // Simulate streaming hypothesis text
-    const input = signalInput;
+    // For manual mode, still prepend live social corpus when available.
+    let chosenSource: SocialPlatform = selectedSource;
+    let input = signalInput;
+    const built = await buildCorpusPreview();
+    if (built) {
+      chosenSource = built.chosenSource;
+      input = `${built.analysisInput}\n\nMANUAL SIGNAL CONTEXT (user override):\n${signalInput}`;
+      setLastAnalysisInput(input);
+    }
     
     try {
-      const result = await pipelineService.processSignal(selectedSource, input);
+      const result = await pipelineService.processSignal(chosenSource, input);
       setRecentSignals(pipelineService.getRecentSignals());
       setStats(pipelineService.getStats());
       setActiveSignal(result);
@@ -242,26 +310,6 @@ const Pipeline: React.FC = () => {
         setStreamingText(prev => prev + hypothesis.slice(i, i + batchSize));
       }
       setIsStreaming(false);
-
-      // Auto-register on Monad (silently, in background)
-      setOnChainResult(null);
-      try {
-        const chainResult = await registerOnChain({
-          hypothesis: result.hypothesis,
-          quality: result.confidence,
-          sentiment: result.sentiment || 'neutral',
-          assetCount: result.discoveredAssets.length,
-          source: 'pipeline',
-          timestamp: result.timestamp,
-        });
-        setOnChainResult({
-          txHash: chainResult.txHash,
-          signalId: chainResult.signalId,
-          explorerUrl: chainResult.explorerUrl,
-        });
-      } catch {
-        // Non-critical: on-chain registration is optional
-      }
 
       setSignalInput('');
     } catch (err) {
@@ -292,46 +340,77 @@ const Pipeline: React.FC = () => {
   };
 
   const buildCorpusPreview = async (): Promise<{ chosenSource: SocialPlatform; analysisInput: string } | null> => {
-    const connectedSocials = socialConnections.filter((s) => s.isConnected && runSources.includes(s.platform));
-    if (!connectedSocials.length) return null;
-
     setIsBuildingCorpus(true);
     try {
       const parts: string[] = [];
-      let chosenSource: SocialPlatform = connectedSocials[0].platform;
+      let chosenSource: SocialPlatform = 'x';
+      let xSources = 0;
+      let redditSources = 0;
 
-      if (connectedSocials.some((s) => s.platform === 'x')) {
+      // Always try the static X corpus pointer first; never let network errors crash the pipeline.
+      try {
+        const staticXResp = await fetch(staticXCorpusUrl);
+        if (staticXResp.ok) {
+          const staticXData = await staticXResp.json();
+          if (typeof staticXData?.corpus === 'string' && staticXData.corpus.trim().length > 0) {
+            xSources = Number(staticXData.sourceCount || 0);
+            parts.push(`[X @${xHandle} | ${xSources} sources | static pointer]\n${staticXData.corpus}`);
+          }
+        }
+      } catch {
+        // Ignore and fallback to service endpoint below
+      }
+
+      if (!parts.length) {
         const xCorpus = await signalService.getXGraphCorpus(xHandle);
         if (xCorpus?.corpus) {
-          chosenSource = 'x';
-          parts.push(`[X @${xHandle} | ${xCorpus.sourceCount} sources]\n${xCorpus.corpus}`);
+          xSources = xCorpus.sourceCount;
+          parts.push(`[X @${xHandle} | ${xSources} sources]\n${xCorpus.corpus}`);
         }
       }
 
-      if (connectedSocials.some((s) => s.platform === 'reddit')) {
+      // Final reliability fallback for demos: use embedded X corpus when network/data is unavailable.
+      if (!parts.length) {
+        xSources = DEMO_X_CORPUS.sourceCount;
+        parts.push(`[X @${xHandle} | ${xSources} sources]\n${DEMO_X_CORPUS.corpus}`);
+      }
+
+      // Optional augment: if Reddit is selected for this run, merge it.
+      if (socialConnections.some((s) => s.isConnected && runSources.includes(s.platform) && s.platform === 'reddit')) {
         const redditCorpus = await signalService.getRedditPublicCorpus();
         if (redditCorpus?.corpus) {
-          if (chosenSource !== 'x') chosenSource = 'reddit';
+          redditSources = redditCorpus.sourceCount;
           parts.push(`[Reddit public | ${redditCorpus.sourceCount} subreddits]\n${redditCorpus.corpus}`);
         }
       }
 
-      if (!parts.length) {
-        const socialNames = connectedSocials.map((s) => s.displayName).join(', ');
-        parts.push(`No live corpus available. Use these selected socials as context: ${socialNames}.`);
-      }
-
       const compiledCorpus = parts.join('\n\n---\n\n');
-      setCorpusPreview(compiledCorpus.slice(0, 1800));
+      const normalized = normalizeCorpusForTrading(compiledCorpus);
+      const preview = `Filtered ${normalized.selectedLines.length}/${normalized.totalCount} tradable lines\n\n${normalized.normalizedCorpus}`;
+      setCorpusPreview(preview.slice(0, 1800));
       setCorpusBuilt(true);
+      const sourceLabel = xSources > 0 && redditSources > 0 ? 'X + Reddit live' : xSources > 0 ? 'X live' : redditSources > 0 ? 'Reddit live' : 'fallback context';
+      setCorpusMeta({
+        sourceLabel,
+        lineCount: normalized.selectedLines.length,
+        xSources,
+        redditSources,
+      });
 
       const systemPrompt =
         `You are a trading-oriented signal engine. Convert the social corpus into actionable market intelligence. ` +
         `Output a high-conviction hypothesis, ranked assets across classes, and concrete trading rationale with risk awareness.`;
-      const analysisInput = `${systemPrompt}\n\nSOCIAL CORPUS:\n${compiledCorpus}`;
+      const analysisInput =
+        `${systemPrompt}\n` +
+        `CORPUS_SOURCE: ${sourceLabel}. X_SOURCES=${xSources}. REDDIT_SOURCES=${redditSources}. FILTERED_LINES=${normalized.selectedLines.length}.\n\n` +
+        `SOCIAL CORPUS (TRADABLE-FIRST NORMALIZED):\n${normalized.normalizedCorpus}`;
       setLastAnalysisInput(analysisInput);
 
       return { chosenSource, analysisInput };
+    } catch (error) {
+      console.error('Failed to build corpus preview:', error);
+      setCorpusMeta({ sourceLabel: 'fallback context', lineCount: 0, xSources: 0, redditSources: 0 });
+      return null;
     } finally {
       setIsBuildingCorpus(false);
     }
@@ -370,24 +449,6 @@ const Pipeline: React.FC = () => {
 
       setSelectedAssetKeys(result.discoveredAssets.slice(0, 2).map(assetKey));
 
-      setOnChainResult(null);
-      try {
-        const chainResult = await registerOnChain({
-          hypothesis: result.hypothesis,
-          quality: result.confidence,
-          sentiment: result.sentiment || 'neutral',
-          assetCount: result.discoveredAssets.length,
-          source: regenerateAssets ? 'regenerated-assets' : 'personalized-socials',
-          timestamp: result.timestamp,
-        });
-        setOnChainResult({
-          txHash: chainResult.txHash,
-          signalId: chainResult.signalId,
-          explorerUrl: chainResult.explorerUrl,
-        });
-      } catch {
-        // Non-critical
-      }
     } catch (err) {
       console.error('Failed to run trading prompt:', err);
       setIsStreaming(false);
@@ -400,28 +461,6 @@ const Pipeline: React.FC = () => {
     if (!activeSignal) return;
     const created = pipelineService.createSignalFromPipeline(activeSignal);
     setCreatedSignalId(created.id);
-
-    // Auto-register on Monad (on-chain)
-    setIsRegistering(true);
-    try {
-      const result = await registerOnChain({
-        hypothesis: activeSignal.hypothesis,
-        quality: activeSignal.confidence,
-        sentiment: activeSignal.sentiment || 'neutral',
-        assetCount: activeSignal.discoveredAssets.length,
-        source: 'pipeline',
-        timestamp: activeSignal.timestamp,
-      });
-      setOnChainResult({
-        txHash: result.txHash,
-        signalId: result.signalId,
-        explorerUrl: result.explorerUrl,
-      });
-    } catch (err) {
-      console.warn('On-chain registration skipped:', err);
-    } finally {
-      setIsRegistering(false);
-    }
 
     setShowCreateDialog(true);
   };
@@ -776,7 +815,9 @@ const Pipeline: React.FC = () => {
                     SOCIAL CONNECTIONS
                   </Typography>
                   <Stack spacing={1} sx={{ mb: 3 }}>
-                    {socialConnections.map((social) => (
+                    {socialConnections.map((social) => {
+                      const accent = socialAccentColor(social.platform, social.color);
+                      return (
                       <Paper
                         key={social.platform}
                         elevation={0}
@@ -784,21 +825,21 @@ const Pipeline: React.FC = () => {
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                           p: 1.5, borderRadius: '12px',
                           background: selectedSource === social.platform
-                            ? `${social.color}15`
+                            ? `${accent}15`
                             : social.isConnected
-                            ? `${social.color}10`
+                            ? `${accent}10`
                             : isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
-                          border: `1px solid ${selectedSource === social.platform ? social.color : social.isConnected ? `${social.color}30` : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}`,
+                          border: `1px solid ${selectedSource === social.platform ? accent : social.isConnected ? `${accent}30` : isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}`,
                           cursor: 'pointer',
                           transition: 'all 0.25s ease',
-                          '&:hover': { borderColor: social.color, background: `${social.color}08` },
+                          '&:hover': { borderColor: accent, background: `${accent}08` },
                         }}
                         onClick={() => handleConnectSocial(social.platform)}
                       >
                         <Stack direction="row" alignItems="center" spacing={1.5}>
                           <Box sx={{
                             width: 32, height: 32, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            background: `${social.color}15`, fontSize: '1rem',
+                            background: `${accent}15`, fontSize: '1rem',
                           }}>
                             {social.icon}
                           </Box>
@@ -807,7 +848,7 @@ const Pipeline: React.FC = () => {
                               {social.displayName}
                             </Typography>
                             {social.isConnected && (
-                              <Typography variant="caption" sx={{ color: social.color, fontWeight: 600, fontSize: '0.68rem' }}>
+                              <Typography variant="caption" sx={{ color: accent, fontWeight: 600, fontSize: '0.68rem' }}>
                                 @{social.username} · {social.dataPoints} items
                               </Typography>
                             )}
@@ -823,7 +864,7 @@ const Pipeline: React.FC = () => {
                           }} />
                         )}
                       </Paper>
-                    ))}
+                    )})}
                   </Stack>
 
                   {/* AI Models */}
@@ -906,6 +947,7 @@ const Pipeline: React.FC = () => {
                   <Stack direction="row" spacing={0.5} sx={{ mb: 2, flexWrap: 'wrap', gap: 0.5 }}>
                     {(['x', 'telegram', 'reddit', 'discord', 'google-trends', 'substack', 'medium', 'other'] as SocialPlatform[]).map((platform) => {
                       const conn = socialConnections.find(s => s.platform === platform);
+                      const accent = conn ? socialAccentColor(conn.platform, conn.color) : '#6366f1';
                       return (
                         <Chip
                           key={platform}
@@ -917,19 +959,19 @@ const Pipeline: React.FC = () => {
                             background: selectedSource === platform 
                               ? '#10b98120' 
                               : conn?.isConnected 
-                              ? `${conn.color}10` 
+                              ? `${accent}10` 
                               : 'transparent',
                             border: `1px solid ${
                               selectedSource === platform 
                                 ? '#10b981' 
                                 : conn?.isConnected 
-                                ? `${conn.color}40` 
+                                ? `${accent}40` 
                                 : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
                             }`,
                             color: selectedSource === platform 
                               ? '#10b981' 
                               : conn?.isConnected 
-                              ? conn.color 
+                              ? accent 
                               : theme.palette.text.secondary,
                           }}
                         />
@@ -957,63 +999,52 @@ const Pipeline: React.FC = () => {
                     ))}
                   </Stack>
 
-                  {/* Signal Input */}
-                  <TextField
-                    multiline
-                    rows={3}
-                    value={signalInput}
-                    onChange={(e) => setSignalInput(e.target.value)}
-                    placeholder='Try: "ETH bullish breakout" or "NFL odds undervalued" or "Fed rate prediction"'
-                    fullWidth
-                    size="small"
-                    disabled={isProcessing}
+                  {/* Manual input is optional; default flow is social-sourced */}
+                  <Paper
+                    elevation={0}
                     sx={{
-                      mb: 2,
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '14px',
-                        fontSize: '0.85rem',
-                        background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
-                      },
-                    }}
-                  />
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    onClick={() => { void buildCorpusPreview(); }}
-                    disabled={isProcessing || isBuildingCorpus || socialConnections.filter((s) => s.isConnected && runSources.includes(s.platform)).length === 0}
-                    startIcon={isBuildingCorpus ? <CircularProgress size={16} /> : <DataIcon />}
-                    sx={{
-                      mb: 1.2,
-                      fontWeight: 700, fontSize: '0.78rem', textTransform: 'none',
-                      borderRadius: '10px',
-                      borderColor: '#6366f1', color: '#6366f1',
+                      p: 1.2, mb: 1.4, borderRadius: '10px',
+                      background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
+                      border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
                     }}
                   >
-                    {isBuildingCorpus ? 'Building Corpus...' : 'Generate Corpus Preview'}
-                  </Button>
-                  {corpusBuilt && (
-                    <Paper
-                      elevation={0}
-                      sx={{
-                        p: 1.3, borderRadius: '10px', mb: 1.8,
-                        background: isDark ? 'rgba(99,102,241,0.05)' : 'rgba(99,102,241,0.03)',
-                        border: '1px solid rgba(99,102,241,0.15)',
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ color: '#6366f1', fontWeight: 800, fontSize: '0.62rem', display: 'block', mb: 0.5 }}>
-                        CORPUS PREVIEW
+                    <Stack direction="row" alignItems="center" justifyContent="space-between">
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: theme.palette.text.secondary, fontSize: '0.7rem' }}>
+                        Manual input (optional override)
                       </Typography>
-                      <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.64rem', lineHeight: 1.35 }}>
-                        {corpusPreview.slice(0, 380)}{corpusPreview.length > 380 ? '...' : ''}
-                      </Typography>
-                    </Paper>
-                  )}
+                      <Switch
+                        size="small"
+                        checked={useManualInput}
+                        onChange={(e) => setUseManualInput(e.target.checked)}
+                      />
+                    </Stack>
+                    {useManualInput && (
+                      <TextField
+                        multiline
+                        rows={3}
+                        value={signalInput}
+                        onChange={(e) => setSignalInput(e.target.value)}
+                        placeholder='Try: "ETH bullish breakout" or "NFL odds undervalued" or "Fed rate prediction"'
+                        fullWidth
+                        size="small"
+                        disabled={isProcessing}
+                        sx={{
+                          mt: 1,
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: '12px',
+                            fontSize: '0.82rem',
+                            background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
+                          },
+                        }}
+                      />
+                    )}
+                  </Paper>
                   <Stack spacing={1.5}>
                     <Button
                       variant="contained"
                       fullWidth
                       onClick={handleProcessSignal}
-                      disabled={isProcessing || !signalInput.trim()}
+                      disabled={isProcessing || (useManualInput ? !signalInput.trim() : socialConnections.filter((s) => s.isConnected && runSources.includes(s.platform)).length === 0)}
                       startIcon={isProcessing ? <CircularProgress size={18} color="inherit" /> : <SendIcon />}
                       sx={{
                         background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
@@ -1024,44 +1055,7 @@ const Pipeline: React.FC = () => {
                         '&:hover': { boxShadow: '0 12px 32px rgba(16,185,129,0.35)' },
                       }}
                     >
-                      {isProcessing ? 'Running Pipeline...' : 'Run Through Pipeline'}
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      fullWidth
-                      onClick={() => { void runTradingPrompt(false); }}
-                      disabled={isProcessing || socialConnections.filter(s => s.isConnected).length === 0}
-                      startIcon={isProcessing ? <CircularProgress size={18} /> : <SparkleIcon />}
-                      sx={{
-                        fontWeight: 700, fontSize: '0.88rem', textTransform: 'none',
-                        borderRadius: '12px', py: 1.2,
-                        borderColor: '#6366f1',
-                        color: '#6366f1',
-                        background: isDark ? 'rgba(99,102,241,0.05)' : 'rgba(99,102,241,0.03)',
-                        '&:hover': {
-                          borderColor: '#6366f1',
-                          background: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.06)',
-                          boxShadow: '0 8px 24px rgba(99,102,241,0.2)',
-                        },
-                        '&:disabled': {
-                          borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-                          color: theme.palette.text.disabled,
-                        },
-                      }}
-                    >
-                      {isProcessing ? 'Generating...' : 'Run Trading-Oriented Prompt'}
-                    </Button>
-                    <Button
-                      variant="text"
-                      fullWidth
-                      onClick={() => { void runTradingPrompt(true); }}
-                      disabled={isProcessing || !activeSignal || !lastAnalysisInput}
-                      sx={{
-                        fontWeight: 700, fontSize: '0.78rem', textTransform: 'none',
-                        color: '#f59e0b',
-                      }}
-                    >
-                      Regenerate Assets
+                      {isProcessing ? 'Running Pipeline...' : useManualInput ? 'Run Through Pipeline (Manual)' : 'Run Through Pipeline'}
                     </Button>
                   </Stack>
 
@@ -1112,15 +1106,28 @@ const Pipeline: React.FC = () => {
                                 }}
                               />
                             )}
-                            {onChainResult && (
+                            {activeSignal?.llmExecution && (
                               <Chip
-                                label={`⛓ #${onChainResult.signalId}`}
+                                label={activeSignal.llmExecution === 'llm' ? 'LLM Used' : 'Fallback Used'}
                                 size="small"
-                                onClick={() => window.open(onChainResult.explorerUrl, '_blank')}
                                 sx={{
-                                  height: 20, fontSize: '0.6rem', fontWeight: 800, cursor: 'pointer',
-                                  background: '#10b98115', color: '#10b981',
-                                  border: '1px solid #10b98120',
+                                  height: 20,
+                                  fontSize: '0.58rem',
+                                  fontWeight: 800,
+                                  background: activeSignal.llmExecution === 'llm' ? '#10b98115' : '#ef444415',
+                                  color: activeSignal.llmExecution === 'llm' ? '#10b981' : '#ef4444',
+                                  border: `1px solid ${activeSignal.llmExecution === 'llm' ? '#10b98130' : '#ef444430'}`,
+                                }}
+                              />
+                            )}
+                            {corpusMeta && (
+                              <Chip
+                                label={`📡 ${corpusMeta.sourceLabel} · ${corpusMeta.lineCount} lines`}
+                                size="small"
+                                sx={{
+                                  height: 20, fontSize: '0.58rem', fontWeight: 800,
+                                  background: '#06b6d415', color: '#06b6d4',
+                                  border: '1px solid #06b6d420',
                                 }}
                               />
                             )}
@@ -1330,8 +1337,26 @@ const Pipeline: React.FC = () => {
                                       {strategy.timeHorizon}
                                     </Typography>
                                   </Stack>
-                                  <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.62rem' }}>
+                                  <Typography variant="caption" sx={{ color: '#10b981', fontSize: '0.6rem', fontWeight: 800, display: 'block', mt: 0.4 }}>
+                                    ENTRY / LIMIT PLAN
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.62rem', display: 'block', lineHeight: 1.35 }}>
                                     {strategy.entry}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: '#f59e0b', fontSize: '0.6rem', fontWeight: 800, display: 'block', mt: 0.6 }}>
+                                    TAKE PROFIT / EXIT
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.62rem', display: 'block', lineHeight: 1.35 }}>
+                                    {strategy.exit}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: '#ef4444', fontSize: '0.6rem', fontWeight: 800, display: 'block', mt: 0.6 }}>
+                                    RISK / EXPOSURE / TECHNICALS
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.62rem', display: 'block', lineHeight: 1.35 }}>
+                                    {strategy.risk}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: '#6366f1', fontSize: '0.6rem', fontWeight: 700, display: 'block', mt: 0.6 }}>
+                                    Route via {strategy.platform}
                                   </Typography>
                                 </Paper>
                               ))}
@@ -1968,60 +1993,6 @@ const Pipeline: React.FC = () => {
                 ))}
               </Stack>
 
-              {/* On-chain registration result */}
-              {isRegistering ? (
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 2, borderRadius: '14px', mt: 2,
-                    background: isDark ? 'rgba(16,185,129,0.04)' : 'rgba(16,185,129,0.03)',
-                    border: '1px solid rgba(16,185,129,0.12)',
-                  }}
-                >
-                  <Stack direction="row" alignItems="center" spacing={1} justifyContent="center">
-                    <CircularProgress size={16} sx={{ color: '#10b981' }} />
-                    <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 700, fontSize: '0.72rem' }}>
-                      Registering on Monad...
-                    </Typography>
-                  </Stack>
-                </Paper>
-              ) : onChainResult && (
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 2, borderRadius: '14px', mt: 2,
-                    background: isDark ? 'rgba(16,185,129,0.06)' : 'rgba(16,185,129,0.04)',
-                    border: '1px solid rgba(16,185,129,0.15)',
-                  }}
-                >
-                  <Stack direction="row" alignItems="center" spacing={0.5} justifyContent="center" sx={{ mb: 0.5 }}>
-                    <CheckIcon sx={{ fontSize: 14, color: '#10b981' }} />
-                    <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 800, fontSize: '0.72rem' }}>
-                      VERIFIED ON MONAD
-                    </Typography>
-                  </Stack>
-                  <Stack direction="row" spacing={0.5} justifyContent="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
-                    <Chip
-                      label={`Signal #${onChainResult.signalId}`}
-                      size="small"
-                      sx={{ height: 22, fontSize: '0.62rem', fontWeight: 700, background: '#10b98115', color: '#10b981', border: '1px solid #10b98125' }}
-                    />
-                    <Chip
-                      label={`TX: ${onChainResult.txHash.slice(0, 10)}...`}
-                      size="small"
-                      onClick={() => window.open(onChainResult.explorerUrl, '_blank')}
-                      sx={{ height: 22, fontSize: '0.62rem', fontWeight: 700, background: '#10b98115', color: '#10b981', border: '1px solid #10b98125', cursor: 'pointer' }}
-                    />
-                    {txState.privacyEnabled && (
-                      <Chip
-                        label="🛡️ Private"
-                        size="small"
-                        sx={{ height: 22, fontSize: '0.62rem', fontWeight: 700, background: '#8b5cf615', color: '#8b5cf6', border: '1px solid #8b5cf625' }}
-                      />
-                    )}
-                  </Stack>
-                </Paper>
-              )}
             </Box>
           )}
         </DialogContent>
