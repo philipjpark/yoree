@@ -17,9 +17,11 @@
 #
 # After setting environment variables, trigger a new deploy for changes to take effect.
 
-# Permanent redirect: yoree.netlify.app → greedytrades.netlify.app (paths preserved)
+# Redirect ONLY on the old yoree site — not on greedytrades (same repo = both sites
+# would otherwise redirect to greedytrades forever → "too many redirects").
 [[redirects]]
   from = "/*"
   to = "https://greedytrades.netlify.app/:splat"
   status = 301
   force = true
+  conditions = { Host = ["yoree.netlify.app"] }
