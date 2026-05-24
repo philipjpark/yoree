@@ -16,3 +16,10 @@
 # - REACT_APP_API_URL (optional, defaults to http://127.0.0.1:3001)
 #
 # After setting environment variables, trigger a new deploy for changes to take effect.
+
+# Permanent redirect: yoree.netlify.app → greedytrades.netlify.app (paths preserved)
+[[redirects]]
+  from = "/*"
+  to = "https://greedytrades.netlify.app/:splat"
+  status = 301
+  force = true
