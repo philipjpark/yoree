@@ -1,8 +1,8 @@
-# <img src="./frontend/src/assets/images/yoree_logo.png" alt="Greed Logo" width="32" height="32" style="vertical-align: middle;"> GREED - The Intelligence Exchange
+# <img src="./frontend/src/assets/images/greed_logo.png" alt="Greed Logo" width="32" height="32" style="vertical-align: middle;"> GREED - The Intelligence Exchange
 
 <div align="center">
 
-<img src="./frontend/src/assets/images/yoree_logo.png" alt="Yoree Logo" width="200" style="border-radius: 12px; margin-bottom: 20px;">
+<img src="./frontend/src/assets/images/greed_logo.png" alt="Greed Logo" width="200" style="border-radius: 12px; margin-bottom: 20px;">
 
 ## The Intelligence Exchange <span style="font-family: 'Noto Sans KR', sans-serif; font-size: 1.2em; color: #FF6B6B; font-weight: bold;">요리</span>
 
@@ -309,7 +309,7 @@ yoree/
 │   │   │   └── syuzhetService.ts
 │   │   └── pages/             # Application pages
 │   └── public/
-│       ├── yoree-logo.png
+│       ├── greed-logo.png
 │       ├── minam-logo.png
 │       └── syuzhet-logo.png
 ├── backend/                    # Rust backend (Axum)

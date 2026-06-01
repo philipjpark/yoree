@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
-import yoreeLogo from '../../assets/images/yoree_logo.png';
+import greedLogo from '../../assets/images/greed_logo.png';
 
 const CryptoKitchen: React.FC = () => {
 
@@ -36,7 +36,7 @@ const CryptoKitchen: React.FC = () => {
         }
       }}
     >
-      {/* YOREE Logo - Much Bigger */}
+      {/* Greed Logo - Much Bigger */}
       <motion.div
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -54,8 +54,8 @@ const CryptoKitchen: React.FC = () => {
       >
         <Box
           component="img"
-          src={yoreeLogo}
-          alt="YOREE Logo"
+          src={greedLogo}
+          alt="Greed Logo"
           sx={{
             width: { xs: '90%', sm: '85%', md: '80%', lg: '75%' },
             height: 'auto',

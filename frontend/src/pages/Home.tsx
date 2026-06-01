@@ -39,7 +39,7 @@ import {
   OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import { useTheme } from '../contexts/ThemeContext';
-import yoreeLogo from '../assets/images/yoree_logo.png';
+import greedLogo from '../assets/images/greed_logo.png';
 const minamLogo = '/minam-logo.png';
 const syuzhetLogo = '/syuzhet-logo.png';
 
@@ -58,7 +58,7 @@ const Home: React.FC = () => {
   const [logoIndex, setLogoIndex] = useState(0);
 
   const logos = [
-    { src: yoreeLogo, alt: 'Greed', name: 'Greed', link: '/pipeline' },
+    { src: greedLogo, alt: 'Greed', name: 'Greed', link: '/pipeline' },
     { src: minamLogo, alt: 'Minam Data Feeds', name: 'Minam', link: '/data-feeds' },
     { src: syuzhetLogo, alt: 'Syuzhet Predictions', name: 'Syuzhet', link: '/pipeline' },
   ];
@@ -184,7 +184,7 @@ const Home: React.FC = () => {
                         component="img"
                         src={logos[logoIndex].src}
                         alt={logos[logoIndex].alt}
-                        onError={(e: any) => { e.target.src = yoreeLogo; }}
+                        onError={(e: any) => { e.target.src = greedLogo; }}
                         sx={{
                           maxWidth: { xs: 220, md: 360 },
                           height: 'auto',
@@ -242,16 +242,7 @@ const Home: React.FC = () => {
                         lineHeight: 1.1, mb: 2, letterSpacing: '-0.03em',
                       }}
                     >
-                      GREED SIGNALS{' '}
-                      <Box
-                        component="span"
-                        sx={{
-                          background: 'inherit',
-                          backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                        }}
-                      >
-                        MARKET
-                      </Box>
+                      Greedy Trades
                     </Typography>
 
                     <Typography
