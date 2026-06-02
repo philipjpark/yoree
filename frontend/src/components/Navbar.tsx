@@ -119,7 +119,7 @@ const Navbar: React.FC = () => {
                     lineHeight: 1.2,
                   }}
                 >
-                    GREED
+                    Greedy
                 </Typography>
                 <Typography
                   variant="caption"
@@ -131,7 +131,7 @@ const Navbar: React.FC = () => {
                       lineHeight: 1,
                   }}
                 >
-                    SIGNALS MARKET
+                    Trades
                 </Typography>
               </Box>
             </Box>
